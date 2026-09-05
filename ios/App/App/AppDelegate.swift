@@ -27,7 +27,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             try session.setCategory(
                 .playback,
                 mode: .default,
-                options: []
+                options: [.mixWithOthers]
             )
 
             try session.setActive(true)
@@ -184,7 +184,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
             try session.setCategory(
                 .playback,
                 mode: .default,
-                options: []
+                options: [.mixWithOthers]
             )
 
             try session.setActive(true)
@@ -770,6 +770,61 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
 
     // ========================================================
+    // LIVE ACTIVITY DIAGNOSTICS
+    // ========================================================
+
+    @MainActor
+    private func showLiveActivityDiagnostic(
+        _ message: String
+    ) {
+
+        print("LIVE ACTIVITY DIAGNOSTIC: \(message)")
+
+        guard let viewController =
+            bridge?.viewController
+        else {
+
+            print(
+                "LIVE ACTIVITY DIAGNOSTIC: no bridge view controller"
+            )
+
+            return
+        }
+
+        // Do not stack diagnostic alerts if START is tapped again.
+        if viewController.presentedViewController
+            is UIAlertController
+        {
+            viewController.dismiss(
+                animated: false
+            )
+        }
+
+        let alert =
+            UIAlertController(
+                title:
+                    "Live Activity – diagnostyka",
+                message:
+                    message,
+                preferredStyle:
+                    .alert
+            )
+
+        alert.addAction(
+            UIAlertAction(
+                title: "OK",
+                style: .default
+            )
+        )
+
+        viewController.present(
+            alert,
+            animated: true
+        )
+    }
+
+
+    // ========================================================
     // LIVE ACTIVITY
     // ========================================================
 
@@ -781,13 +836,20 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
             .areActivitiesEnabled
         else {
 
-            print("Live Activities are disabled")
+            showLiveActivityDiagnostic(
+                "iOS zgłasza, że Live Activities są wyłączone dla tej aplikacji."
+            )
 
             return
         }
 
 
         guard !workoutItems.isEmpty else {
+
+            showLiveActivityDiagnostic(
+                "Nie można uruchomić Live Activity: plan treningu jest pusty."
+            )
+
             return
         }
 
@@ -860,10 +922,30 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
                 liveActivityIndex = 0
 
+                let activityCount =
+                    Activity<IntervalTimerAttributes>
+                        .activities
+                        .count
+
+                showLiveActivityDiagnostic(
+                    """
+                    START OK
+                    Activity ID: \(activity.id)
+                    Stan: \(String(describing: activity.activityState))
+                    Aktywne Live Activities: \(activityCount)
+
+                    Po zamknięciu tego komunikatu zablokuj ekran i sprawdź ekran blokady.
+                    """
+                )
+
             } catch {
 
-                print(
-                    "Could not start Live Activity: \(error)"
+                showLiveActivityDiagnostic(
+                    """
+                    START ERROR
+
+                    \(String(describing: error))
+                    """
                 )
             }
         }
@@ -1257,7 +1339,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
             player.scheduleBuffer(
                 buffer,
                 at: nil,
-                options: []
+                options: [.mixWithOthers]
             )
 
 
