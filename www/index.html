@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Interval Timer</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+
+            background: #f4f3f1;
+            color: #292929;
+        }
+
+        .app {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            margin: 5px 0 25px;
+            color: #888;
+        }
+
+
+        /* =====================================================
+           KARTY
+        ===================================================== */
+
+        .card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 18px;
+
+            box-shadow:
+                0 2px 12px rgba(0,0,0,0.045);
+        }
+
+
+        /* =====================================================
+           TIMER
+        ===================================================== */
+
+        .timer-card {
+            text-align: center;
+        }
+
+        .label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #999;
+
+            letter-spacing: 0.7px;
+
+            margin-bottom: 5px;
+        }
+
+        #timer {
+            font-size: 80px;
+            font-weight: 700;
+
+            line-height: 1;
+
+            margin: 10px 0 20px;
+        }
+
+        #remainingTime {
+            font-size: 30px;
+            font-weight: 600;
+
+            margin-bottom: 10px;
+
+            color: #555;
+        }
+
+        #status {
+            color: #999;
+
+            margin-bottom: 20px;
+        }
+
+
+        /* =====================================================
+           PRZYCISKI TIMERA
+        ===================================================== */
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            border: none;
+
+            border-radius: 12px;
+
+            padding: 13px 16px;
+
+            font-size: 16px;
+            font-weight: 600;
+
+            cursor: pointer;
+        }
+
+        .start {
+            background: #b9d8c2;
+            color: #294233;
+
+            flex: 1;
+        }
+
+        .start:hover {
+            background: #afd0b9;
+        }
+
+        .pause {
+            background: #e9d9a9;
+            color: #5f5434;
+
+            flex: 1;
+        }
+
+        .pause:hover {
+            background: #e4d29d;
+        }
+
+        .stop {
+            background: #e3b9b5;
+            color: #603c38;
+
+            flex: 1;
+        }
+
+        .stop:hover {
+            background: #ddb0ac;
+        }
+
+
+        /* =====================================================
+           NAZWA TRENINGU
+        ===================================================== */
+
+        .training-name {
+            margin-bottom: 20px;
+        }
+
+        .training-name label {
+            display: block;
+
+            font-size: 13px;
+            font-weight: 700;
+
+            color: #888;
+
+            margin-bottom: 7px;
+        }
+
+        .training-name input {
+            width: 100%;
+
+            padding: 12px 13px;
+
+            border: 1px solid #ddd9d4;
+            border-radius: 11px;
+
+            font-size: 17px;
+
+            background: #faf9f7;
+            color: #292929;
+        }
+
+        .training-name input:focus {
+            outline: none;
+            border-color: #b8b0a7;
+        }
+
+
+        /* =====================================================
+           ZAPISYWANIE
+        ===================================================== */
+
+        .save-button {
+            width: 100%;
+
+            margin-top: 10px;
+
+            background: #d5c8df;
+            color: #493d52;
+        }
+
+        .save-button:hover {
+            background: #cdbfd8;
+        }
+
+
+        /* =====================================================
+           ZAPISANE TRENINGI
+        ===================================================== */
+
+        .saved-title {
+            margin: 25px 0 10px;
+
+            font-size: 15px;
+            font-weight: 700;
+
+            color: #777;
+        }
+
+        .saved-workout {
+            display: flex;
+
+            justify-content: space-between;
+            align-items: center;
+
+            gap: 10px;
+
+            padding: 12px;
+
+            margin-top: 8px;
+
+            border-radius: 12px;
+
+            background: #f7f5f2;
+        }
+
+        .saved-workout-name {
+            font-weight: 600;
+
+            flex: 1;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .saved-workout-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .load-button {
+            background: #c8d5df;
+            color: #3d4b55;
+
+            padding: 8px 11px;
+
+            font-size: 13px;
+        }
+
+        .delete-saved-button {
+            background: #eee1df;
+            color: #74514d;
+
+            padding: 8px 11px;
+
+            font-size: 13px;
+        }
+
+
+        /* =====================================================
+           NAGŁÓWEK TRENINGU
+        ===================================================== */
+
+        .training-header {
+            display: flex;
+
+            justify-content: space-between;
+            align-items: center;
+
+            gap: 15px;
+        }
+
+        .training-header h2 {
+            margin: 0;
+
+            font-size: 22px;
+        }
+
+        .repeat-box {
+            display: flex;
+
+            align-items: center;
+
+            gap: 8px;
+
+            font-size: 14px;
+        }
+
+
+        /* =====================================================
+           INPUTY
+        ===================================================== */
+
+        input {
+            width: 70px;
+
+            padding: 9px;
+
+            border: 1px solid #ddd9d4;
+            border-radius: 9px;
+
+            font-size: 16px;
+
+            text-align: center;
+
+            background: #faf9f7;
+        }
+
+
+        /* =====================================================
+           SEKCJE
+        ===================================================== */
+
+        .section {
+            border: 1px solid #e4e0dc;
+
+            border-radius: 15px;
+
+            padding: 15px;
+
+            margin-top: 15px;
+
+            background: #fdfcfb;
+        }
+
+        .section-header {
+            display: flex;
+
+            justify-content: space-between;
+            align-items: center;
+
+            gap: 10px;
+
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: 19px;
+
+            font-weight: 700;
+        }
+
+        .section-repeat {
+            display: flex;
+
+            align-items: center;
+
+            gap: 7px;
+
+            font-size: 14px;
+        }
+
+
+        /* =====================================================
+           INTERWAŁY
+        ===================================================== */
+
+        .interval {
+            display: flex;
+
+            align-items: center;
+
+            gap: 8px;
+
+            margin-bottom: 9px;
+        }
+
+        .interval-number {
+            width: 25px;
+
+            color: #999;
+
+            font-size: 14px;
+        }
+
+        .interval input {
+            flex: 1;
+
+            width: auto;
+
+            text-align: left;
+        }
+
+
+        /* =====================================================
+           MAŁE PRZYCISKI
+        ===================================================== */
+
+        .delete {
+            background: #eee1df;
+
+            color: #74514d;
+
+            padding: 9px 11px;
+
+            font-size: 14px;
+        }
+
+        .add {
+            width: 100%;
+
+            margin-top: 5px;
+
+            background: #e5e0ea;
+
+            color: #554b5d;
+        }
+
+        .add:hover {
+            background: #ddd6e4;
+        }
+
+        .add-section {
+            width: 100%;
+
+            margin-top: 15px;
+
+            background: #c8d5df;
+
+            color: #3d4b55;
+        }
+
+
+        /* =====================================================
+           MOBILE
+        ===================================================== */
+
+        @media (max-width: 450px) {
+
+            body {
+                padding: 12px;
+            }
+
+            #timer {
+                font-size: 70px;
+            }
+
+            .training-header {
+                align-items: flex-start;
+
+                flex-direction: column;
+            }
+
+            .section-header {
+                align-items: flex-start;
+
+                flex-direction: column;
+            }
+
+            .saved-workout {
+                align-items: flex-start;
+
+                flex-direction: column;
+            }
+
+            .saved-workout-buttons {
+                width: 100%;
+            }
+
+            .saved-workout-buttons button {
+                flex: 1;
+            }
+        }
+
+    </style>
+</head>
+
+
+<body>
+
+<div class="app">
+
+    <h1>⏱️ Interval Timer</h1>
+
+    <div class="subtitle">
+        Twój trening interwałowy
+    </div>
+
+
+    <!-- =====================================================
+         TIMER
+    ====================================================== -->
+
+    <div class="card timer-card">
+
+        <div class="label">
+            AKTUALNY INTERWAŁ
+        </div>
+
+        <div id="timer">
+            --
+        </div>
+
+        <div class="label">
+            POZOSTAŁO
+        </div>
+
+        <div id="remainingTime">
+            00:00
+        </div>
+
+        <div id="status">
+            Gotowy
+        </div>
+
+        <div class="buttons">
+
+            <button
+                class="start"
+                onclick="startTraining()"
+            >
+                ▶ START
+            </button>
+
+            <button
+                class="pause"
+                onclick="pauseTimer()"
+            >
+                ⏸ PAUZA
+            </button>
+
+            <button
+                class="stop"
+                onclick="stopTimer()"
+            >
+                ⏹ STOP
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         TRENING
+    ====================================================== -->
+
+    <div class="card">
+
+        <!-- NAZWA -->
+
+        <div class="training-name">
+
+            <label for="trainingName">
+                NAZWA TRENINGU
+            </label>
+
+            <input
+                id="trainingName"
+                type="text"
+                placeholder="np. Workout A"
+            >
+
+            <button
+                class="save-button"
+                onclick="saveWorkout()"
+            >
+                💾 ZAPISZ TRENING
+            </button>
+
+        </div>
+
+
+        <!-- POWTÓRZENIA CAŁEGO TRENINGU -->
+
+        <div class="training-header">
+
+            <h2>
+                Trening
+            </h2>
+
+            <div class="repeat-box">
+
+                <span>
+                    Powtórz cały trening:
+                </span>
+
+                <input
+                    id="trainingRepeats"
+                    type="number"
+                    min="1"
+                    value="3"
+                    onchange="
+                        calculateTotalTrainingTime();
+                        updateRemainingTime();
+                    "
+                >
+
+            </div>
+
+        </div>
+
+
+        <!-- SEKCJE -->
+
+        <div id="sections"></div>
+
+
+        <button
+            class="add-section"
+            onclick="addSection()"
+        >
+            ＋ DODAJ SEKCJĘ
+        </button>
+
+
+        <!-- ZAPISANE TRENINGI -->
+
+        <div class="saved-title">
+            ZAPISANE TRENINGI
+        </div>
+
+        <div id="savedWorkouts"></div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+
+    // =========================================================
+    // DANE TRENINGU
+    // =========================================================
+
+    let training = [
+
+        {
+            repeats: 10,
+
+            intervals: [
+                { seconds: 10 },
+                { seconds: 5 }
+            ]
+        },
+
+        {
+            repeats: 1,
+
+            intervals: [
+                { seconds: 15 }
+            ]
+        },
+
+        {
+            repeats: 1,
+
+            intervals: [
+                { seconds: 30 }
+            ]
+        }
+
+    ];
+
+
+    // =========================================================
+    // STAN TIMERA
+    // =========================================================
+
+    let currentSection = 0;
+
+    let currentInterval = 0;
+
+    let currentSectionRepeat = 1;
+
+    let currentTrainingRepeat = 1;
+
+    let currentTime = 0;
+
+    let timer = null;
+
+    let transitionTimeout = null;
+
+    let audioContext = null;
+
+    let totalTrainingSeconds = 0;
+
+    let remainingTrainingSeconds = 0;
+
+
+    // =========================================================
+    // WYŚWIETLANIE TRENINGU
+    // =========================================================
+
+    function displayTraining() {
+
+        const container =
+            document.getElementById("sections");
+
+        container.innerHTML = "";
+
+
+        training.forEach((section, sectionIndex) => {
+
+            const sectionDiv =
+                document.createElement("div");
+
+            sectionDiv.className = "section";
+
+
+            sectionDiv.innerHTML = `
+
+                <div class="section-header">
+
+                    <div class="section-title">
+                        Sekcja ${sectionIndex + 1}
+                    </div>
+
+                    <div class="section-repeat">
+
+                        <span>
+                            Powtórz:
+                        </span>
+
+                        <input
+                            type="number"
+                            min="1"
+                            value="${section.repeats}"
+
+                            onchange="
+                                changeSectionRepeats(
+                                    ${sectionIndex},
+                                    this.value
+                                )
+                            "
+                        >
+
+                        <span>
+                            razy
+                        </span>
+
+                        <button
+                            class="delete"
+                            onclick="
+                                removeSection(
+                                    ${sectionIndex}
+                                )
+                            "
+                        >
+                            🗑
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div>
+
+                    ${section.intervals.map(
+                        (interval, intervalIndex) => `
+
+                        <div class="interval">
+
+                            <div class="interval-number">
+                                ${intervalIndex + 1}.
+                            </div>
+
+                            <input
+                                type="number"
+                                min="1"
+                                value="${interval.seconds}"
+
+                                onchange="
+                                    changeInterval(
+                                        ${sectionIndex},
+                                        ${intervalIndex},
+                                        this.value
+                                    )
+                                "
+                            >
+
+                            <span>
+                                sek.
+                            </span>
+
+                            <button
+                                class="delete"
+                                onclick="
+                                    removeInterval(
+                                        ${sectionIndex},
+                                        ${intervalIndex}
+                                    )
+                                "
+                            >
+                                🗑
+                            </button>
+
+                        </div>
+
+                    `
+                    ).join("")}
+
+                </div>
+
+
+                <button
+                    class="add"
+                    onclick="
+                        addInterval(${sectionIndex})
+                    "
+                >
+                    ＋ DODAJ INTERWAŁ
+                </button>
+
+            `;
+
+
+            container.appendChild(sectionDiv);
+
+        });
+
+    }
+
+
+    // =========================================================
+    // ZMIANA INTERWAŁU
+    // =========================================================
+
+    function changeInterval(
+        sectionIndex,
+        intervalIndex,
+        value
+    ) {
+
+        let seconds = parseInt(value);
+
+
+        if (
+            isNaN(seconds) ||
+            seconds < 1
+        ) {
+            seconds = 1;
+        }
+
+
+        training[
+            sectionIndex
+        ].intervals[
+            intervalIndex
+        ].seconds = seconds;
+
+
+        calculateTotalTrainingTime();
+
+
+        if (!timer) {
+
+            remainingTrainingSeconds =
+                totalTrainingSeconds;
+
+            updateRemainingTime();
+
+        }
+
+    }
+
+
+    // =========================================================
+    // DODAJ INTERWAŁ
+    // =========================================================
+
+    function addInterval(sectionIndex) {
+
+        training[
+            sectionIndex
+        ].intervals.push({
+
+            seconds: 10
+
+        });
+
+
+        displayTraining();
+
+    }
+
+
+    // =========================================================
+    // USUŃ INTERWAŁ
+    // =========================================================
+
+    function removeInterval(
+        sectionIndex,
+        intervalIndex
+    ) {
+
+        if (
+            training[
+                sectionIndex
+            ].intervals.length <= 1
+        ) {
+            return;
+        }
+
+
+        training[
+            sectionIndex
+        ].intervals.splice(
+            intervalIndex,
+            1
+        );
+
+
+        displayTraining();
+
+
+        calculateTotalTrainingTime();
+
+        updateRemainingTime();
+
+    }
+
+
+    // =========================================================
+    // ZMIANA POWTÓRZEŃ SEKCJI
+    // =========================================================
+
+    function changeSectionRepeats(
+        sectionIndex,
+        value
+    ) {
+
+        let repeats = parseInt(value);
+
+
+        if (
+            isNaN(repeats) ||
+            repeats < 1
+        ) {
+            repeats = 1;
+        }
+
+
+        training[
+            sectionIndex
+        ].repeats = repeats;
+
+
+        calculateTotalTrainingTime();
+
+
+        if (!timer) {
+
+            remainingTrainingSeconds =
+                totalTrainingSeconds;
+
+            updateRemainingTime();
+
+        }
+
+    }
+
+
+    // =========================================================
+    // DODAJ SEKCJĘ
+    // =========================================================
+
+    function addSection() {
+
+        training.push({
+
+            repeats: 1,
+
+            intervals: [
+                {
+                    seconds: 10
+                }
+            ]
+
+        });
+
+
+        displayTraining();
+
+
+        calculateTotalTrainingTime();
+
+        updateRemainingTime();
+
+    }
+
+
+    // =========================================================
+    // USUŃ SEKCJĘ
+    // =========================================================
+
+    function removeSection(sectionIndex) {
+
+        if (training.length <= 1) {
+            return;
+        }
+
+
+        training.splice(
+            sectionIndex,
+            1
+        );
+
+
+        displayTraining();
+
+
+        calculateTotalTrainingTime();
+
+        updateRemainingTime();
+
+    }
+
+
+    // =========================================================
+    // CAŁKOWITY CZAS TRENINGU
+    // =========================================================
+
+    function calculateTotalTrainingTime() {
+
+        let oneTraining = 0;
+
+
+        training.forEach(section => {
+
+            let sectionTime = 0;
+
+
+            section.intervals.forEach(
+                interval => {
+
+                    sectionTime +=
+                        interval.seconds;
+
+                }
+            );
+
+
+            oneTraining +=
+                sectionTime *
+                section.repeats;
+
+        });
+
+
+        const trainingRepeats =
+            parseInt(
+                document.getElementById(
+                    "trainingRepeats"
+                ).value
+            ) || 1;
+
+
+        totalTrainingSeconds =
+            oneTraining *
+            trainingRepeats;
+
+
+        return totalTrainingSeconds;
+
+    }
+
+
+    // =========================================================
+    // FORMATOWANIE CZASU
+    // =========================================================
+
+    function formatTime(seconds) {
+
+        seconds =
+            Math.max(
+                0,
+                Math.floor(seconds)
+            );
+
+
+        const minutes =
+            Math.floor(seconds / 60);
+
+
+        const secs =
+            seconds % 60;
+
+
+        return (
+
+            String(minutes)
+                .padStart(2, "0")
+
+            +
+
+            ":"
+
+            +
+
+            String(secs)
+                .padStart(2, "0")
+
+        );
+
+    }
+
+
+    // =========================================================
+    // AKTUALIZACJA POZOSTAŁEGO CZASU
+    // =========================================================
+
+    function updateRemainingTime() {
+
+        document.getElementById(
+            "remainingTime"
+        ).textContent =
+            formatTime(
+                remainingTrainingSeconds
+            );
+
+    }
+
+
+    // =========================================================
+    // START
+    // =========================================================
+
+    function startTraining() {
+
+        prepareAudio();
+
+
+        if (
+            currentSection >= training.length
+        ) {
+
+            currentSection = 0;
+
+            currentInterval = 0;
+
+            currentSectionRepeat = 1;
+
+            currentTrainingRepeat = 1;
+
+
+            remainingTrainingSeconds =
+                calculateTotalTrainingTime();
+
+        }
+
+
+        if (
+            remainingTrainingSeconds <= 0
+        ) {
+
+            remainingTrainingSeconds =
+                calculateTotalTrainingTime();
+
+        }
+
+
+        playCurrentInterval();
+
+    }
+
+
+    // =========================================================
+    // AKTUALNY INTERWAŁ
+    // =========================================================
+
+    function playCurrentInterval() {
+
+        clearInterval(timer);
+
+        clearTimeout(
+            transitionTimeout
+        );
+
+
+        const section =
+            training[currentSection];
+
+
+        if (!section) {
+
+            finishTraining();
+
+            return;
+
+        }
+
+
+        const interval =
+            section.intervals[
+                currentInterval
+            ];
+
+
+        if (!interval) {
+
+            goToNextSection();
+
+            return;
+
+        }
+
+
+        currentTime =
+            interval.seconds;
+
+
+        document.getElementById(
+            "timer"
+        ).textContent =
+            currentTime;
+
+
+        updateStatus();
+
+
+        timer = setInterval(() => {
+
+            currentTime--;
+
+
+            document.getElementById(
+                "timer"
+            ).textContent =
+                currentTime;
+
+
+            // =================================================
+            // TRZY CICHY BIPY
+            // 3 → 2 → 1
+            // =================================================
+
+            if (
+                currentTime === 3 ||
+                currentTime === 2 ||
+                currentTime === 1
+            ) {
+
+                warningBeep();
+
+            }
+
+
+            // =================================================
+            // GŁOŚNY, DŁUŻSZY BIP NA ZERO
+            // =================================================
+
+            if (
+                currentTime === 0
+            ) {
+
+                clearInterval(timer);
+
+                timer = null;
+
+
+                finalBeep();
+
+
+                updateStatus();
+
+
+                /*
+                    Zero pozostaje widoczne
+                    przez pełną sekundę.
+                */
+
+                transitionTimeout =
+                    setTimeout(() => {
+
+                        goToNextInterval();
+
+                    }, 1000);
+
+
+                return;
+
+            }
+
+
+            if (
+                remainingTrainingSeconds > 0
+            ) {
+
+                remainingTrainingSeconds--;
+
+            }
+
+
+            updateRemainingTime();
+
+
+        }, 1000);
+
+    }
+
+
+    // =========================================================
+    // NASTĘPNY INTERWAŁ
+    // =========================================================
+
+    function goToNextInterval() {
+
+        currentInterval++;
+
+
+        const section =
+            training[currentSection];
+
+
+        if (
+            currentInterval <
+            section.intervals.length
+        ) {
+
+            playCurrentInterval();
+
+            return;
+
+        }
+
+
+        goToNextSection();
+
+    }
+
+
+    // =========================================================
+    // NASTĘPNA SEKCJA
+    // =========================================================
+
+    function goToNextSection() {
+
+        currentInterval = 0;
+
+        currentSectionRepeat++;
+
+
+        const section =
+            training[currentSection];
+
+
+        if (
+            currentSectionRepeat <=
+            section.repeats
+        ) {
+
+            playCurrentInterval();
+
+            return;
+
+        }
+
+
+        currentSection++;
+
+        currentSectionRepeat = 1;
+
+
+        if (
+            currentSection <
+            training.length
+        ) {
+
+            playCurrentInterval();
+
+            return;
+
+        }
+
+
+        // =====================================================
+        // KONIEC JEDNEGO TRENINGU
+        // =====================================================
+
+        currentTrainingRepeat++;
+
+
+        const trainingRepeats =
+            parseInt(
+                document.getElementById(
+                    "trainingRepeats"
+                ).value
+            ) || 1;
+
+
+        if (
+            currentTrainingRepeat <=
+            trainingRepeats
+        ) {
+
+            currentSection = 0;
+
+            currentInterval = 0;
+
+            currentSectionRepeat = 1;
+
+
+            playCurrentInterval();
+
+            return;
+
+        }
+
+
+        finishTraining();
+
+    }
+
+
+    // =========================================================
+    // STATUS
+    // =========================================================
+
+    function updateStatus() {
+
+        const section =
+            currentSection + 1;
+
+
+        const interval =
+            currentInterval + 1;
+
+
+        document.getElementById(
+            "status"
+        ).textContent =
+
+            `Sekcja ${section} • Interwał ${interval}`;
+
+    }
+
+
+    // =========================================================
+    // PAUZA
+    // =========================================================
+
+    function pauseTimer() {
+
+        clearInterval(timer);
+
+        timer = null;
+
+
+        clearTimeout(
+            transitionTimeout
+        );
+
+        transitionTimeout = null;
+
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            "Pauza";
+
+    }
+
+
+    // =========================================================
+    // STOP
+    // =========================================================
+
+    function stopTimer() {
+
+        clearInterval(timer);
+
+        timer = null;
+
+
+        clearTimeout(
+            transitionTimeout
+        );
+
+        transitionTimeout = null;
+
+
+        currentSection = 0;
+
+        currentInterval = 0;
+
+        currentSectionRepeat = 1;
+
+        currentTrainingRepeat = 1;
+
+        currentTime = 0;
+
+
+        calculateTotalTrainingTime();
+
+
+        remainingTrainingSeconds =
+            totalTrainingSeconds;
+
+
+        document.getElementById(
+            "timer"
+        ).textContent =
+            "--";
+
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            "Gotowy";
+
+
+        updateRemainingTime();
+
+    }
+
+
+    // =========================================================
+    // KONIEC TRENINGU
+    // =========================================================
+
+    function finishTraining() {
+
+        clearInterval(timer);
+
+        timer = null;
+
+
+        clearTimeout(
+            transitionTimeout
+        );
+
+        transitionTimeout = null;
+
+
+        document.getElementById(
+            "timer"
+        ).textContent =
+            "DONE";
+
+
+        document.getElementById(
+            "remainingTime"
+        ).textContent =
+            "00:00";
+
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            "Trening zakończony";
+
+
+        remainingTrainingSeconds = 0;
+
+
+        currentSection =
+            training.length;
+
+    }
+
+
+    // =========================================================
+    // AUDIO
+    // =========================================================
+
+    function prepareAudio() {
+
+        if (!audioContext) {
+
+            audioContext =
+                new (
+                    window.AudioContext ||
+                    window.webkitAudioContext
+                )();
+
+        }
+
+
+        if (
+            audioContext.state ===
+            "suspended"
+        ) {
+
+            audioContext.resume();
+
+        }
+
+    }
+
+
+    // =========================================================
+    // CICHY BIP
+    // =========================================================
+
+    function warningBeep() {
+
+        prepareAudio();
+
+
+        const oscillator =
+            audioContext.createOscillator();
+
+
+        const gain =
+            audioContext.createGain();
+
+
+        oscillator.type =
+            "sine";
+
+
+        oscillator.frequency.value =
+            800;
+
+
+        gain.gain.setValueAtTime(
+            0.12,
+            audioContext.currentTime
+        );
+
+
+        gain.gain.exponentialRampToValueAtTime(
+            0.001,
+
+            audioContext.currentTime +
+            0.12
+        );
+
+
+        oscillator.connect(gain);
+
+        gain.connect(
+            audioContext.destination
+        );
+
+
+        oscillator.start();
+
+
+        oscillator.stop(
+            audioContext.currentTime +
+            0.12
+        );
+
+    }
+
+
+    // =========================================================
+    // GŁOŚNY I DŁUŻSZY BIP NA ZERO
+    // =========================================================
+
+    function finalBeep() {
+
+    prepareAudio();
+
+    const oscillator =
+        audioContext.createOscillator();
+
+    const gain =
+        audioContext.createGain();
+
+    oscillator.type = "sine";
+
+    oscillator.frequency.value = 800;
+
+    // Taka sama głośność jak zwykły bip
+    gain.gain.setValueAtTime(
+        0.12,
+        audioContext.currentTime
+    );
+
+    // Utrzymujemy dźwięk przez prawie całą sekundę
+    gain.gain.setValueAtTime(
+        0.12,
+        audioContext.currentTime + 0.85
+    );
+
+    // Delikatne wyciszenie pod koniec
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        audioContext.currentTime + 1.0
+    );
+
+    oscillator.connect(gain);
+
+    gain.connect(
+        audioContext.destination
+    );
+
+    oscillator.start();
+
+    oscillator.stop(
+        audioContext.currentTime + 1.0
+    );
+}
+
+
+    // =========================================================
+    // ZAPIS TRENINGU
+    // =========================================================
+
+    function saveWorkout() {
+
+        const nameInput =
+            document.getElementById(
+                "trainingName"
+            );
+
+
+        let name =
+            nameInput.value.trim();
+
+
+        if (!name) {
+
+            name =
+                "Mój trening";
+
+        }
+
+
+        const trainingRepeats =
+            parseInt(
+                document.getElementById(
+                    "trainingRepeats"
+                ).value
+            ) || 1;
+
+
+        const workout = {
+
+            name: name,
+
+            training:
+                JSON.parse(
+                    JSON.stringify(training)
+                ),
+
+            trainingRepeats:
+                trainingRepeats
+
+        };
+
+
+        const saved =
+            JSON.parse(
+                localStorage.getItem(
+                    "intervalTimerWorkouts"
+                ) || "[]"
+            );
+
+
+        saved.push(workout);
+
+
+        localStorage.setItem(
+            "intervalTimerWorkouts",
+
+            JSON.stringify(saved)
+        );
+
+
+        displaySavedWorkouts();
+
+
+        nameInput.value =
+            name;
+
+
+        alert(
+            `Trening "${name}" został zapisany.`
+        );
+
+    }
+
+
+    // =========================================================
+    // WYŚWIETLANIE ZAPISANYCH TRENINGÓW
+    // =========================================================
+
+    function displaySavedWorkouts() {
+
+        const container =
+            document.getElementById(
+                "savedWorkouts"
+            );
+
+
+        const saved =
+            JSON.parse(
+                localStorage.getItem(
+                    "intervalTimerWorkouts"
+                ) || "[]"
+            );
+
+
+        container.innerHTML = "";
+
+
+        if (
+            saved.length === 0
+        ) {
+
+            container.innerHTML = `
+                <div style="
+                    color:#999;
+                    font-size:14px;
+                    padding:8px 0;
+                ">
+                    Nie masz jeszcze zapisanych treningów.
+                </div>
+            `;
+
+            return;
+
+        }
+
+
+        saved.forEach(
+            (workout, index) => {
+
+                const row =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                row.className =
+                    "saved-workout";
+
+
+                row.innerHTML = `
+
+                    <div class="saved-workout-name">
+                        ${escapeHtml(workout.name)}
+                    </div>
+
+                    <div class="saved-workout-buttons">
+
+                        <button
+                            class="load-button"
+                            onclick="
+                                loadWorkout(${index})
+                            "
+                        >
+                            ▶ WCZYTAJ
+                        </button>
+
+                        <button
+                            class="delete-saved-button"
+                            onclick="
+                                deleteWorkout(${index})
+                            "
+                        >
+                            🗑
+                        </button>
+
+                    </div>
+
+                `;
+
+
+                container.appendChild(row);
+
+            }
+        );
+
+    }
+
+
+    // =========================================================
+    // WCZYTYWANIE TRENINGU
+    // =========================================================
+
+    function loadWorkout(index) {
+
+        const saved =
+            JSON.parse(
+                localStorage.getItem(
+                    "intervalTimerWorkouts"
+                ) || "[]"
+            );
+
+
+        const workout =
+            saved[index];
+
+
+        if (!workout) {
+            return;
+        }
+
+
+        // Zatrzymujemy obecny timer
+
+        stopTimer();
+
+
+        // Wczytujemy trening
+
+        training =
+            JSON.parse(
+                JSON.stringify(
+                    workout.training
+                )
+            );
+
+
+        document.getElementById(
+            "trainingName"
+        ).value =
+            workout.name;
+
+
+        document.getElementById(
+            "trainingRepeats"
+        ).value =
+            workout.trainingRepeats;
+
+
+        displayTraining();
+
+
+        calculateTotalTrainingTime();
+
+
+        remainingTrainingSeconds =
+            totalTrainingSeconds;
+
+
+        updateRemainingTime();
+
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            "Trening wczytany";
+
+    }
+
+
+    // =========================================================
+    // USUWANIE TRENINGU
+    // =========================================================
+
+    function deleteWorkout(index) {
+
+        const saved =
+            JSON.parse(
+                localStorage.getItem(
+                    "intervalTimerWorkouts"
+                ) || "[]"
+            );
+
+
+        if (!saved[index]) {
+            return;
+        }
+
+
+        const name =
+            saved[index].name;
+
+
+        const confirmed =
+            confirm(
+                `Usunąć trening "${name}"?`
+            );
+
+
+        if (!confirmed) {
+            return;
+        }
+
+
+        saved.splice(
+            index,
+            1
+        );
+
+
+        localStorage.setItem(
+            "intervalTimerWorkouts",
+
+            JSON.stringify(saved)
+        );
+
+
+        displaySavedWorkouts();
+
+    }
+
+
+    // =========================================================
+    // BEZPIECZNE WYŚWIETLANIE NAZW
+    // =========================================================
+
+    function escapeHtml(text) {
+
+        const div =
+            document.createElement(
+                "div"
+            );
+
+
+        div.textContent =
+            text;
+
+
+        return div.innerHTML;
+
+    }
+
+
+    // =========================================================
+    // START
+    // =========================================================
+
+    displayTraining();
+
+    calculateTotalTrainingTime();
+
+    remainingTrainingSeconds =
+        totalTrainingSeconds;
+
+    updateRemainingTime();
+
+    displaySavedWorkouts();
+
+
+</script>
+
+</body>
+</html>
