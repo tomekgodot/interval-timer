@@ -1606,63 +1606,18 @@
 
     function warningBeep() {
 
-        prepareAudio();
+    if (
+        window.Capacitor &&
+        Capacitor.Plugins &&
+        Capacitor.Plugins.NativeAudio
+    ) {
 
+        Capacitor.Plugins.NativeAudio.warningBeep();
 
-        const oscillator =
-            audioContext.createOscillator();
-
-
-        const gain =
-            audioContext.createGain();
-
-
-        oscillator.type =
-            "sine";
-
-
-        oscillator.frequency.value =
-            800;
-
-
-        gain.gain.setValueAtTime(
-            0.12,
-            audioContext.currentTime
-        );
-
-
-        gain.gain.exponentialRampToValueAtTime(
-            0.001,
-
-            audioContext.currentTime +
-            0.12
-        );
-
-
-        oscillator.connect(gain);
-
-        gain.connect(
-            audioContext.destination
-        );
-
-
-        oscillator.start();
-
-
-        oscillator.stop(
-            audioContext.currentTime +
-            0.12
-        );
-
+        return;
     }
 
-
-    // =========================================================
-    // GŁOŚNY I DŁUŻSZY BIP NA ZERO
-    // =========================================================
-
-    function finalBeep() {
-
+    // Fallback dla wersji webowej
     prepareAudio();
 
     const oscillator =
@@ -1675,19 +1630,69 @@
 
     oscillator.frequency.value = 800;
 
-    // Taka sama głośność jak zwykły bip
     gain.gain.setValueAtTime(
         0.12,
         audioContext.currentTime
     );
 
-    // Utrzymujemy dźwięk przez prawie całą sekundę
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        audioContext.currentTime + 0.12
+    );
+
+    oscillator.connect(gain);
+
+    gain.connect(
+        audioContext.destination
+    );
+
+    oscillator.start();
+
+    oscillator.stop(
+        audioContext.currentTime + 0.12
+    );
+}
+
+    // =========================================================
+    // GŁOŚNY I DŁUŻSZY BIP NA ZERO
+    // =========================================================
+
+    function finalBeep() {
+
+    if (
+        window.Capacitor &&
+        Capacitor.Plugins &&
+        Capacitor.Plugins.NativeAudio
+    ) {
+
+        Capacitor.Plugins.NativeAudio.finalBeep();
+
+        return;
+    }
+
+    // Fallback dla wersji webowej
+    prepareAudio();
+
+    const oscillator =
+        audioContext.createOscillator();
+
+    const gain =
+        audioContext.createGain();
+
+    oscillator.type = "sine";
+
+    oscillator.frequency.value = 800;
+
+    gain.gain.setValueAtTime(
+        0.12,
+        audioContext.currentTime
+    );
+
     gain.gain.setValueAtTime(
         0.12,
         audioContext.currentTime + 0.85
     );
 
-    // Delikatne wyciszenie pod koniec
     gain.gain.exponentialRampToValueAtTime(
         0.001,
         audioContext.currentTime + 1.0
