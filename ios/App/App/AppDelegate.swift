@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import AVFoundation
+import ActivityKit
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -138,8 +139,22 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     // WORKOUT STATE
     // ========================================================
 
+    private struct WorkoutItem {
+        let duration: Double
+        let start: Double
+        let sectionText: String
+        let repeatText: String
+    }
+
+    private var workoutItems: [WorkoutItem] = []
     private var workoutDurations: [Double] = []
     private var workoutStarts: [Double] = []
+
+    private var liveActivityIndex: Int = -1
+
+    @available(iOS 16.1, *)
+    private var liveActivity:
+        Activity<IntervalTimerAttributes>?
 
     private var workoutFrame: Int64 = 0
     private var workoutTotalFrames: Int64 = 0
@@ -218,7 +233,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
             let json = try? JSONSerialization.jsonObject(
                 with: data
             ) as? [String: Any],
-            let rawDurations = json["durations"] as? [Any]
+            let rawItems = json["items"] as? [[String: Any]]
         else {
 
             call.reject("Invalid workout plan")
@@ -227,23 +242,52 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
 
-        let durations: [Double] = rawDurations.compactMap {
+        var parsedItems: [
+            (
+                duration: Double,
+                sectionText: String,
+                repeatText: String
+            )
+        ] = []
 
-            if let number = $0 as? NSNumber {
-                return max(1.0, number.doubleValue)
+
+        for rawItem in rawItems {
+
+            guard let number =
+                rawItem["duration"] as? NSNumber
+            else {
+                continue
             }
 
-            if let string = $0 as? String,
-               let number = Double(string) {
 
-                return max(1.0, number)
-            }
+            let duration =
+                max(
+                    1.0,
+                    number.doubleValue
+                )
 
-            return nil
+
+            let sectionText =
+                rawItem["sectionText"] as? String
+                ?? "Interwał"
+
+
+            let repeatText =
+                rawItem["repeatText"] as? String
+                ?? ""
+
+
+            parsedItems.append(
+                (
+                    duration,
+                    sectionText,
+                    repeatText
+                )
+            )
         }
 
 
-        guard !durations.isEmpty else {
+        guard !parsedItems.isEmpty else {
 
             call.reject("Workout has no intervals")
 
@@ -256,21 +300,33 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         configureAudioSession()
 
 
-        workoutDurations = durations
+        workoutItems = []
+        workoutDurations = []
         workoutStarts = []
 
         var cursor = 0.0
 
-        for duration in durations {
+        for item in parsedItems {
 
             workoutStarts.append(cursor)
+            workoutDurations.append(item.duration)
+
+            workoutItems.append(
+                WorkoutItem(
+                    duration: item.duration,
+                    start: cursor,
+                    sectionText: item.sectionText,
+                    repeatText: item.repeatText
+                )
+            )
 
             // 1 second hold on zero/final beep.
-            cursor += duration + 1.0
+            cursor += item.duration + 1.0
         }
 
 
         workoutFrame = 0
+        liveActivityIndex = -1
 
         workoutTotalFrames =
             Int64(
@@ -290,6 +346,14 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("Could not start workout audio engine")
 
             return
+        }
+
+
+        if #available(iOS 16.1, *) {
+
+            Task { @MainActor in
+                self.startLiveActivity()
+            }
         }
 
 
@@ -318,6 +382,17 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         workoutEngine?.pause()
 
         workoutPaused = true
+
+
+        if #available(iOS 16.1, *) {
+
+            Task { @MainActor in
+                await self.updateLiveActivity(
+                    paused: true
+                )
+            }
+        }
+
 
         call.resolve()
     }
@@ -349,6 +424,17 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
             workoutPaused = false
 
+
+            if #available(iOS 16.1, *) {
+
+                Task { @MainActor in
+                    await self.updateLiveActivity(
+                        paused: false
+                    )
+                }
+            }
+
+
             call.resolve()
 
         } catch {
@@ -365,6 +451,14 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     // ========================================================
 
     @objc func stopWorkout(_ call: CAPPluginCall) {
+
+        if #available(iOS 16.1, *) {
+
+            Task { @MainActor in
+                await self.endLiveActivity()
+            }
+        }
+
 
         stopWorkoutEngine(resetState: true)
 
@@ -491,6 +585,37 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
                 Int64(frameCount)
 
 
+            let elapsed =
+                Double(self.workoutFrame) /
+                self.sampleRate
+
+
+            let newIndex =
+                self.workoutItemIndex(
+                    at: elapsed
+                )
+
+
+            if
+                newIndex >= 0,
+                newIndex != self.liveActivityIndex
+            {
+
+                self.liveActivityIndex =
+                    newIndex
+
+
+                if #available(iOS 16.1, *) {
+
+                    Task { @MainActor in
+                        await self.updateLiveActivity(
+                            paused: false
+                        )
+                    }
+                }
+            }
+
+
             if
                 self.workoutFrame >=
                     self.workoutTotalFrames,
@@ -511,6 +636,14 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
                     self.workoutEngine?.stop()
 
                     self.workoutRunning = false
+
+
+                    if #available(iOS 16.1, *) {
+
+                        Task { @MainActor in
+                            await self.endLiveActivity()
+                        }
+                    }
                 }
             }
 
@@ -546,6 +679,295 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
             return false
         }
+    }
+
+
+    // ========================================================
+    // CURRENT WORKOUT ITEM
+    // ========================================================
+
+    private func workoutItemIndex(
+        at elapsed: Double
+    ) -> Int {
+
+        guard !workoutItems.isEmpty else {
+            return -1
+        }
+
+
+        for index in 0..<workoutItems.count {
+
+            let item =
+                workoutItems[index]
+
+
+            let nextStart =
+                index + 1 < workoutItems.count
+                ? workoutItems[index + 1].start
+                : Double(workoutTotalFrames) /
+                    sampleRate
+
+
+            if
+                elapsed >= item.start,
+                elapsed < nextStart
+            {
+
+                return index
+            }
+        }
+
+
+        return workoutItems.count - 1
+    }
+
+
+    private func secondsLeftInCurrentInterval() -> Int {
+
+        let elapsed =
+            Double(workoutFrame) /
+            sampleRate
+
+
+        let index =
+            workoutItemIndex(
+                at: elapsed
+            )
+
+
+        guard
+            index >= 0,
+            index < workoutItems.count
+        else {
+
+            return 0
+        }
+
+
+        let item =
+            workoutItems[index]
+
+
+        let localElapsed =
+            max(
+                0.0,
+                elapsed - item.start
+            )
+
+
+        return max(
+            0,
+            Int(
+                ceil(
+                    item.duration -
+                    localElapsed
+                )
+            )
+        )
+    }
+
+
+    // ========================================================
+    // LIVE ACTIVITY
+    // ========================================================
+
+    @available(iOS 16.1, *)
+    @MainActor
+    private func startLiveActivity() {
+
+        guard ActivityAuthorizationInfo()
+            .areActivitiesEnabled
+        else {
+
+            print("Live Activities are disabled")
+
+            return
+        }
+
+
+        guard !workoutItems.isEmpty else {
+            return
+        }
+
+
+        Task {
+
+            for activity in
+                Activity<IntervalTimerAttributes>
+                    .activities
+            {
+
+                await activity.end(
+                    nil,
+                    dismissalPolicy:
+                        .immediate
+                )
+            }
+
+
+            let first =
+                workoutItems[0]
+
+
+            let now = Date()
+
+            let state =
+                IntervalTimerAttributes
+                    .ContentState(
+                        intervalStart: now,
+                        intervalEnd:
+                            now.addingTimeInterval(
+                                first.duration
+                            ),
+                        pausedSeconds: nil,
+                        sectionText:
+                            first.sectionText,
+                        repeatText:
+                            first.repeatText,
+                        isPaused: false
+                    )
+
+
+            let content =
+                ActivityContent(
+                    state: state,
+                    staleDate: nil
+                )
+
+
+            let attributes =
+                IntervalTimerAttributes(
+                    workoutName:
+                        "Interval Timer"
+                )
+
+
+            do {
+
+                liveActivity =
+                    try Activity.request(
+                        attributes:
+                            attributes,
+                        content:
+                            content,
+                        pushType: nil
+                    )
+
+                liveActivityIndex = 0
+
+            } catch {
+
+                print(
+                    "Could not start Live Activity: \(error)"
+                )
+            }
+        }
+    }
+
+
+    @available(iOS 16.1, *)
+    @MainActor
+    private func updateLiveActivity(
+        paused: Bool
+    ) async {
+
+        guard
+            let activity = liveActivity,
+            !workoutItems.isEmpty
+        else {
+
+            return
+        }
+
+
+        let elapsed =
+            Double(workoutFrame) /
+            sampleRate
+
+
+        let index =
+            workoutItemIndex(
+                at: elapsed
+            )
+
+
+        guard
+            index >= 0,
+            index < workoutItems.count
+        else {
+
+            return
+        }
+
+
+        let item =
+            workoutItems[index]
+
+
+        let secondsLeft =
+            secondsLeftInCurrentInterval()
+
+
+        let now =
+            Date()
+
+
+        let state =
+            IntervalTimerAttributes
+                .ContentState(
+                    intervalStart: now,
+                    intervalEnd:
+                        now.addingTimeInterval(
+                            TimeInterval(
+                                secondsLeft
+                            )
+                        ),
+                    pausedSeconds:
+                        paused
+                        ? secondsLeft
+                        : nil,
+                    sectionText:
+                        item.sectionText,
+                    repeatText:
+                        item.repeatText,
+                    isPaused:
+                        paused
+                )
+
+
+        let content =
+            ActivityContent(
+                state: state,
+                staleDate: nil
+            )
+
+
+        await activity.update(
+            content
+        )
+    }
+
+
+    @available(iOS 16.1, *)
+    @MainActor
+    private func endLiveActivity() async {
+
+        guard let activity =
+            liveActivity
+        else {
+
+            return
+        }
+
+
+        await activity.end(
+            nil,
+            dismissalPolicy:
+                .immediate
+        )
+
+
+        liveActivity = nil
     }
 
 
@@ -697,8 +1119,11 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
         if resetState {
 
+            workoutItems = []
             workoutDurations = []
             workoutStarts = []
+
+            liveActivityIndex = -1
 
             workoutFrame = 0
             workoutTotalFrames = 0

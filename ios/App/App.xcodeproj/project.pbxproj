@@ -16,7 +16,21 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		A10000000000000000000006 /* IntervalTimerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* IntervalTimerLiveActivity.swift */; };
+		A10000000000000000000007 /* IntervalTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* IntervalTimerAttributes.swift */; };
+		A10000000000000000000008 /* IntervalTimerAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* IntervalTimerAttributes.swift */; };
+		A1000000000000000000000D /* IntervalTimerLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* IntervalTimerLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A1000000000000000000000E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000010;
+			remoteInfo = IntervalTimerLiveActivity;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
@@ -30,7 +44,25 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000001 /* IntervalTimerLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = IntervalTimerLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000002 /* IntervalTimerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntervalTimerLiveActivity.swift; sourceTree = "<group>"; };
+		A10000000000000000000003 /* IntervalTimerAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntervalTimerAttributes.swift; sourceTree = "<group>"; };
+		A10000000000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A1000000000000000000000C /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A1000000000000000000000D /* IntervalTimerLiveActivity.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		504EC3011FED79650016851F /* Frameworks */ = {
@@ -38,6 +70,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1000000000000000000000A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -49,6 +88,7 @@
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
+				A10000000000000000000005 /* IntervalTimerLiveActivity */,
 				504EC3051FED79650016851F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -57,6 +97,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				A10000000000000000000001 /* IntervalTimerLiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -67,6 +108,7 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				A10000000000000000000003 /* IntervalTimerAttributes.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -75,6 +117,15 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000005 /* IntervalTimerLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000002 /* IntervalTimerLiveActivity.swift */,
+				A10000000000000000000004 /* Info.plist */,
+			);
+			path = IntervalTimerLiveActivity;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -87,10 +138,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				A1000000000000000000000C /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A1000000000000000000000F /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -99,6 +152,25 @@
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A10000000000000000000010 /* IntervalTimerLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000013 /* Build configuration list for PBXNativeTarget "IntervalTimerLiveActivity" */;
+			buildPhases = (
+				A10000000000000000000009 /* Sources */,
+				A1000000000000000000000A /* Frameworks */,
+				A1000000000000000000000B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = IntervalTimerLiveActivity;
+			packageProductDependencies = (
+			);
+			productName = IntervalTimerLiveActivity;
+			productReference = A10000000000000000000001 /* IntervalTimerLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -112,6 +184,10 @@
 					504EC3031FED79650016851F = {
 						CreatedOnToolsVersion = 9.2;
 						LastSwiftMigration = 1100;
+						ProvisioningStyle = Automatic;
+					};
+					A10000000000000000000010 = {
+						CreatedOnToolsVersion = 16.0;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -133,6 +209,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				A10000000000000000000010 /* IntervalTimerLiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -151,6 +228,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1000000000000000000000B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -159,11 +243,29 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				A10000000000000000000007 /* IntervalTimerAttributes.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A10000000000000000000009 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000006 /* IntervalTimerLiveActivity.swift in Sources */,
+				A10000000000000000000008 /* IntervalTimerAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A1000000000000000000000F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000010 /* IntervalTimerLiveActivity */;
+			targetProxy = A1000000000000000000000E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -338,6 +440,52 @@
 			};
 			name = Release;
 		};
+		A10000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = IntervalTimerLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tomekgodot.intervaltimer.liveactivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A10000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = IntervalTimerLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.tomekgodot.intervaltimer.liveactivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -355,6 +503,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000013 /* Build configuration list for PBXNativeTarget "IntervalTimerLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000011 /* Debug */,
+				A10000000000000000000012 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

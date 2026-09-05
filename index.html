@@ -1185,8 +1185,14 @@
 
             Capacitor.Plugins.NativeAudio.startWorkout({
                 plan: JSON.stringify({
-                    durations: nativeFlatPlan.map(
-                        item => item.duration
+                    items: nativeFlatPlan.map(
+                        item => ({
+                            duration: item.duration,
+                            sectionText:
+                                `Sekcja ${item.sectionIndex + 1} · Interwał ${item.intervalIndex + 1}/${training[item.sectionIndex].intervals.length}`,
+                            repeatText:
+                                `Sekcja ${item.sectionRepeat}/${training[item.sectionIndex].repeats} · Trening ${item.trainingRepeat}/${trainingRepeats}`
+                        })
                     )
                 })
             });
