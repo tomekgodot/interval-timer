@@ -1606,15 +1606,7 @@
 
     function warningBeep() {
 
-    alert(
-        "NativeAudio exists: " +
-        !!(
-            window.Capacitor &&
-            Capacitor.Plugins &&
-            Capacitor.Plugins.NativeAudio
-        )
-    );
-
+    // Natywny dźwięk w aplikacji iOS
     if (
         window.Capacitor &&
         Capacitor.Plugins &&
@@ -1626,18 +1618,7 @@
         return;
     }
 
-    if (
-        window.Capacitor &&
-        Capacitor.Plugins &&
-        Capacitor.Plugins.NativeAudio
-    ) {
-
-        Capacitor.Plugins.NativeAudio.warningBeep();
-
-        return;
-    }
-
-    // Fallback dla wersji webowej
+    // Fallback dla zwykłej wersji webowej
     prepareAudio();
 
     const oscillator =

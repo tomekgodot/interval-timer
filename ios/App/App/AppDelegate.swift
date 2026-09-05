@@ -185,3 +185,11 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 }
+class MyViewController: CAPBridgeViewController {
+
+    override open func capacitorDidLoad() {
+        bridge?.registerPluginInstance(
+            NativeAudioPlugin()
+        )
+    }
+}
