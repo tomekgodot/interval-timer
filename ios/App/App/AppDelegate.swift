@@ -1339,7 +1339,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
             player.scheduleBuffer(
                 buffer,
                 at: nil,
-                options: [.mixWithOthers]
+                options: []
             )
 
 
