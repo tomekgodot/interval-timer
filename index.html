@@ -523,9 +523,6 @@
         </div>
 
         <div class="buttons">
-            <button onclick="testBackgroundAudio()">
-                TEST LOCK
-            </button>
 
             <button
                 class="start"
@@ -700,18 +697,22 @@
 
     let remainingTrainingSeconds = 0;
 
-     function testBackgroundAudio() {
+    // =========================================================
+    // NATYWNY TIMER iOS
+    // =========================================================
 
-    if (
+    let nativeTimerAvailable = () => (
         window.Capacitor &&
         Capacitor.Plugins &&
         Capacitor.Plugins.NativeAudio
-    ) {
+    );
 
-        Capacitor.Plugins.NativeAudio.backgroundTest();
+    let nativeMode = false;
+    let nativePaused = false;
+    let nativeUiTimer = null;
+    let nativeFlatPlan = [];
+    let nativeTotalDuration = 0;
 
-    }
-}   
 
     // =========================================================
     // WYŚWIETLANIE TRENINGU
@@ -1154,6 +1155,54 @@
 
     function startTraining() {
 
+        if (nativeTimerAvailable()) {
+
+            if (nativeMode && nativePaused) {
+
+                Capacitor.Plugins.NativeAudio.resumeWorkout();
+
+                nativePaused = false;
+
+                startNativeUiLoop();
+
+                syncNativeState();
+
+                return;
+            }
+
+            if (nativeMode) {
+                return;
+            }
+
+            buildNativePlan();
+
+            if (nativeFlatPlan.length === 0) {
+                return;
+            }
+
+            nativeMode = true;
+            nativePaused = false;
+
+            Capacitor.Plugins.NativeAudio.startWorkout({
+                plan: JSON.stringify({
+                    durations: nativeFlatPlan.map(
+                        item => item.duration
+                    )
+                })
+            });
+
+            startNativeUiLoop();
+
+            syncNativeState();
+
+            return;
+        }
+
+
+        // =====================================================
+        // FALLBACK WEBOWY
+        // =====================================================
+
         prepareAudio();
 
 
@@ -1189,6 +1238,287 @@
         playCurrentInterval();
 
     }
+
+
+    // =========================================================
+    // NATYWNY PLAN TRENINGU
+    // =========================================================
+
+    function buildNativePlan() {
+
+        nativeFlatPlan = [];
+
+        let cursor = 0;
+
+        const trainingRepeats =
+            parseInt(
+                document.getElementById(
+                    "trainingRepeats"
+                ).value
+            ) || 1;
+
+
+        for (
+            let trainingRepeat = 1;
+            trainingRepeat <= trainingRepeats;
+            trainingRepeat++
+        ) {
+
+            training.forEach(
+                (section, sectionIndex) => {
+
+                    for (
+                        let sectionRepeat = 1;
+                        sectionRepeat <= section.repeats;
+                        sectionRepeat++
+                    ) {
+
+                        section.intervals.forEach(
+                            (interval, intervalIndex) => {
+
+                                const duration =
+                                    Math.max(
+                                        1,
+                                        Number(interval.seconds) || 1
+                                    );
+
+                                nativeFlatPlan.push({
+
+                                    duration: duration,
+
+                                    start: cursor,
+
+                                    end: cursor + duration,
+
+                                    sectionIndex:
+                                        sectionIndex,
+
+                                    intervalIndex:
+                                        intervalIndex,
+
+                                    sectionRepeat:
+                                        sectionRepeat,
+
+                                    trainingRepeat:
+                                        trainingRepeat
+
+                                });
+
+                                // 1 sekunda na "0" i długi beep,
+                                // tak jak w dotychczasowym timerze.
+                                cursor += duration + 1;
+
+                            }
+                        );
+                    }
+                }
+            );
+        }
+
+
+        nativeTotalDuration = cursor;
+
+    }
+
+
+    // =========================================================
+    // SYNCHRONIZACJA UI Z NATYWNYM TIMEREM
+    // =========================================================
+
+    function startNativeUiLoop() {
+
+        clearInterval(nativeUiTimer);
+
+        nativeUiTimer =
+            setInterval(
+                syncNativeState,
+                250
+            );
+
+    }
+
+
+    async function syncNativeState() {
+
+        if (
+            !nativeMode ||
+            !nativeTimerAvailable()
+        ) {
+            return;
+        }
+
+
+        try {
+
+            const state =
+                await Capacitor.Plugins.NativeAudio
+                    .getWorkoutState();
+
+
+            if (state.finished) {
+
+                clearInterval(nativeUiTimer);
+
+                nativeUiTimer = null;
+
+                nativeMode = false;
+                nativePaused = false;
+
+                finishTraining();
+
+                return;
+            }
+
+
+            const elapsed =
+                Math.max(
+                    0,
+                    Number(state.elapsed) || 0
+                );
+
+
+            let activeItem = null;
+
+
+            for (
+                let i = 0;
+                i < nativeFlatPlan.length;
+                i++
+            ) {
+
+                const item =
+                    nativeFlatPlan[i];
+
+                const nextStart =
+                    i + 1 < nativeFlatPlan.length
+                        ? nativeFlatPlan[i + 1].start
+                        : nativeTotalDuration;
+
+
+                if (
+                    elapsed >= item.start &&
+                    elapsed < nextStart
+                ) {
+
+                    activeItem = item;
+
+                    break;
+                }
+            }
+
+
+            if (!activeItem) {
+                return;
+            }
+
+
+            const localElapsed =
+                elapsed - activeItem.start;
+
+
+            const secondsLeft =
+                localElapsed < activeItem.duration
+                    ? Math.max(
+                        0,
+                        Math.ceil(
+                            activeItem.duration -
+                            localElapsed
+                        )
+                    )
+                    : 0;
+
+
+            currentSection =
+                activeItem.sectionIndex;
+
+            currentInterval =
+                activeItem.intervalIndex;
+
+            currentSectionRepeat =
+                activeItem.sectionRepeat;
+
+            currentTrainingRepeat =
+                activeItem.trainingRepeat;
+
+            currentTime =
+                secondsLeft;
+
+
+            document.getElementById(
+                "timer"
+            ).textContent =
+                secondsLeft;
+
+
+            remainingTrainingSeconds =
+                Math.max(
+                    0,
+                    Math.ceil(
+                        nativeTotalDuration -
+                        elapsed
+                    )
+                );
+
+
+            updateRemainingTime();
+
+
+            if (state.paused) {
+
+                document.getElementById(
+                    "status"
+                ).textContent =
+                    "Pauza";
+
+            } else {
+
+                updateStatus();
+
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Native timer state error:",
+                error
+            );
+
+        }
+
+    }
+
+
+    document.addEventListener(
+        "visibilitychange",
+        () => {
+
+            if (
+                document.visibilityState === "visible" &&
+                nativeMode
+            ) {
+
+                syncNativeState();
+
+                startNativeUiLoop();
+
+            }
+        }
+    );
+
+
+    window.addEventListener(
+        "focus",
+        () => {
+
+            if (nativeMode) {
+
+                syncNativeState();
+
+                startNativeUiLoop();
+
+            }
+        }
+    );
 
 
     // =========================================================
@@ -1468,6 +1798,28 @@
 
     function pauseTimer() {
 
+        if (
+            nativeMode &&
+            nativeTimerAvailable()
+        ) {
+
+            Capacitor.Plugins.NativeAudio.pauseWorkout();
+
+            nativePaused = true;
+
+            clearInterval(nativeUiTimer);
+
+            nativeUiTimer = null;
+
+            document.getElementById(
+                "status"
+            ).textContent =
+                "Pauza";
+
+            return;
+        }
+
+
         clearInterval(timer);
 
         timer = null;
@@ -1493,6 +1845,24 @@
     // =========================================================
 
     function stopTimer() {
+
+        if (
+            nativeMode &&
+            nativeTimerAvailable()
+        ) {
+
+            Capacitor.Plugins.NativeAudio.stopWorkout();
+
+            clearInterval(nativeUiTimer);
+
+            nativeUiTimer = null;
+
+            nativeMode = false;
+            nativePaused = false;
+            nativeFlatPlan = [];
+            nativeTotalDuration = 0;
+        }
+
 
         clearInterval(timer);
 
@@ -1557,6 +1927,13 @@
         );
 
         transitionTimeout = null;
+
+
+        clearInterval(nativeUiTimer);
+
+        nativeUiTimer = null;
+
+        nativePaused = false;
 
 
         document.getElementById(

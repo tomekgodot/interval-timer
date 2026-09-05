@@ -33,36 +33,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         } catch {
 
-            print(
-                "Could not configure audio session: \(error)"
-            )
-
+            print("Could not configure audio session: \(error)")
         }
     }
 
-    func applicationWillResignActive(
-        _ application: UIApplication
-    ) {
+    func applicationWillResignActive(_ application: UIApplication) {
     }
 
-    func applicationDidEnterBackground(
-        _ application: UIApplication
-    ) {
+    func applicationDidEnterBackground(_ application: UIApplication) {
     }
 
-    func applicationWillEnterForeground(
-        _ application: UIApplication
-    ) {
+    func applicationWillEnterForeground(_ application: UIApplication) {
     }
 
-    func applicationDidBecomeActive(
-        _ application: UIApplication
-    ) {
+    func applicationDidBecomeActive(_ application: UIApplication) {
     }
 
-    func applicationWillTerminate(
-        _ application: UIApplication
-    ) {
+    func applicationWillTerminate(_ application: UIApplication) {
     }
 
     func application(
@@ -84,20 +71,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 
 // ============================================================
-// NATIVE AUDIO PLUGIN
+// NATIVE AUDIO + BACKGROUND WORKOUT TIMER
 // ============================================================
 
 @objc(NativeAudioPlugin)
-public class NativeAudioPlugin:
-    CAPPlugin,
-    CAPBridgedPlugin
-{
+public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
-    public let identifier =
-        "NativeAudioPlugin"
-
-    public let jsName =
-        "NativeAudio"
+    public let identifier = "NativeAudioPlugin"
+    public let jsName = "NativeAudio"
 
     public let pluginMethods: [CAPPluginMethod] = [
 
@@ -112,39 +93,61 @@ public class NativeAudioPlugin:
         ),
 
         CAPPluginMethod(
-            name: "backgroundTest",
+            name: "startWorkout",
             returnType: CAPPluginReturnPromise
         ),
 
         CAPPluginMethod(
-            name: "stopBackgroundTest",
+            name: "pauseWorkout",
+            returnType: CAPPluginReturnPromise
+        ),
+
+        CAPPluginMethod(
+            name: "resumeWorkout",
+            returnType: CAPPluginReturnPromise
+        ),
+
+        CAPPluginMethod(
+            name: "stopWorkout",
+            returnType: CAPPluginReturnPromise
+        ),
+
+        CAPPluginMethod(
+            name: "getWorkoutState",
             returnType: CAPPluginReturnPromise
         )
     ]
 
 
     // ========================================================
-    // ZWYKŁE BIPY
+    // AUDIO
     // ========================================================
+
+    private let sampleRate: Double = 44100.0
+    private let toneFrequency: Double = 800.0
+    private let toneAmplitude: Float = 0.12
 
     private var beepEngine: AVAudioEngine?
     private var beepPlayer: AVAudioPlayerNode?
 
+    private var workoutEngine: AVAudioEngine?
+    private var workoutSource: AVAudioSourceNode?
+
 
     // ========================================================
-    // BACKGROUND TEST
+    // WORKOUT STATE
     // ========================================================
 
-    private var backgroundEngine: AVAudioEngine?
+    private var workoutDurations: [Double] = []
+    private var workoutStarts: [Double] = []
 
-    private var backgroundSource:
-        AVAudioSourceNode?
+    private var workoutFrame: Int64 = 0
+    private var workoutTotalFrames: Int64 = 0
 
-    private var backgroundFrame:
-        Int64 = 0
-
-    private let sampleRate:
-        Double = 44100.0
+    private var workoutRunning = false
+    private var workoutPaused = false
+    private var workoutFinished = false
+    private var finishStopScheduled = false
 
 
     public override func load() {
@@ -159,8 +162,7 @@ public class NativeAudioPlugin:
 
         do {
 
-            let session =
-                AVAudioSession.sharedInstance()
+            let session = AVAudioSession.sharedInstance()
 
             try session.setCategory(
                 .playback,
@@ -172,329 +174,352 @@ public class NativeAudioPlugin:
 
         } catch {
 
-            print(
-                "NativeAudio session error: \(error)"
-            )
-
+            print("NativeAudio session error: \(error)")
         }
     }
 
 
     // ========================================================
-    // WARNING BEEP
+    // STANDALONE BEEPS
     // ========================================================
 
-    @objc func warningBeep(
-        _ call: CAPPluginCall
-    ) {
+    @objc func warningBeep(_ call: CAPPluginCall) {
 
-        playTone(
-            duration: 0.12
-        )
+        playTone(duration: 0.12)
+
+        call.resolve()
+    }
+
+
+    @objc func finalBeep(_ call: CAPPluginCall) {
+
+        playTone(duration: 1.0)
 
         call.resolve()
     }
 
 
     // ========================================================
-    // FINAL BEEP
+    // START WORKOUT
     // ========================================================
 
-    @objc func finalBeep(
-        _ call: CAPPluginCall
-    ) {
+    @objc func startWorkout(_ call: CAPPluginCall) {
 
-        playTone(
-            duration: 1.0
-        )
+        guard let planString = call.getString("plan") else {
 
-        call.resolve()
-    }
-
-
-    // ========================================================
-    // TEST 10 SEKUND W TLE
-    //
-    // 7 s  -> krótki beep
-    // 8 s  -> krótki beep
-    // 9 s  -> krótki beep
-    // 10 s -> długi beep
-    // ========================================================
-
-    @objc func backgroundTest(
-        _ call: CAPPluginCall
-    ) {
-
-        stopBackgroundAudio()
-
-        configureAudioSession()
-
-        backgroundFrame = 0
-
-
-        let engine =
-            AVAudioEngine()
-
-
-        guard let format =
-            AVAudioFormat(
-                standardFormatWithSampleRate:
-                    sampleRate,
-                channels: 1
-            )
-        else {
-
-            call.reject(
-                "Could not create audio format"
-            )
+            call.reject("Missing workout plan")
 
             return
         }
 
 
-        let warningLength =
+        guard
+            let data = planString.data(using: .utf8),
+            let json = try? JSONSerialization.jsonObject(
+                with: data
+            ) as? [String: Any],
+            let rawDurations = json["durations"] as? [Any]
+        else {
+
+            call.reject("Invalid workout plan")
+
+            return
+        }
+
+
+        let durations: [Double] = rawDurations.compactMap {
+
+            if let number = $0 as? NSNumber {
+                return max(1.0, number.doubleValue)
+            }
+
+            if let string = $0 as? String,
+               let number = Double(string) {
+
+                return max(1.0, number)
+            }
+
+            return nil
+        }
+
+
+        guard !durations.isEmpty else {
+
+            call.reject("Workout has no intervals")
+
+            return
+        }
+
+
+        stopWorkoutEngine(resetState: true)
+
+        configureAudioSession()
+
+
+        workoutDurations = durations
+        workoutStarts = []
+
+        var cursor = 0.0
+
+        for duration in durations {
+
+            workoutStarts.append(cursor)
+
+            // 1 second hold on zero/final beep.
+            cursor += duration + 1.0
+        }
+
+
+        workoutFrame = 0
+
+        workoutTotalFrames =
             Int64(
-                sampleRate * 0.12
+                (cursor * sampleRate).rounded()
             )
 
-        let finalLength =
-            Int64(
-                sampleRate * 1.0
+        workoutRunning = true
+        workoutPaused = false
+        workoutFinished = false
+        finishStopScheduled = false
+
+
+        guard startWorkoutEngine() else {
+
+            workoutRunning = false
+
+            call.reject("Could not start workout audio engine")
+
+            return
+        }
+
+
+        call.resolve([
+            "totalDuration": cursor
+        ])
+    }
+
+
+    // ========================================================
+    // PAUSE
+    // ========================================================
+
+    @objc func pauseWorkout(_ call: CAPPluginCall) {
+
+        guard workoutRunning,
+              !workoutFinished
+        else {
+
+            call.resolve()
+
+            return
+        }
+
+
+        workoutEngine?.pause()
+
+        workoutPaused = true
+
+        call.resolve()
+    }
+
+
+    // ========================================================
+    // RESUME
+    // ========================================================
+
+    @objc func resumeWorkout(_ call: CAPPluginCall) {
+
+        guard workoutRunning,
+              workoutPaused,
+              !workoutFinished
+        else {
+
+            call.resolve()
+
+            return
+        }
+
+
+        configureAudioSession()
+
+
+        do {
+
+            try workoutEngine?.start()
+
+            workoutPaused = false
+
+            call.resolve()
+
+        } catch {
+
+            call.reject(
+                "Could not resume workout: \(error)"
+            )
+        }
+    }
+
+
+    // ========================================================
+    // STOP
+    // ========================================================
+
+    @objc func stopWorkout(_ call: CAPPluginCall) {
+
+        stopWorkoutEngine(resetState: true)
+
+        call.resolve()
+    }
+
+
+    // ========================================================
+    // GET STATE
+    // ========================================================
+
+    @objc func getWorkoutState(_ call: CAPPluginCall) {
+
+        let elapsed =
+            min(
+                Double(workoutFrame) / sampleRate,
+                Double(workoutTotalFrames) / sampleRate
             )
 
 
-        let beep7 =
-            Int64(sampleRate * 7.0)
+        call.resolve([
 
-        let beep8 =
-            Int64(sampleRate * 8.0)
+            "elapsed": elapsed,
 
-        let beep9 =
-            Int64(sampleRate * 9.0)
+            "totalDuration":
+                Double(workoutTotalFrames) / sampleRate,
 
-        let finalStart =
-            Int64(sampleRate * 10.0)
+            "running": workoutRunning,
 
+            "paused": workoutPaused,
 
-        let frequency =
-            800.0
+            "finished": workoutFinished
 
-        let amplitude:
-            Float = 0.12
+        ])
+    }
 
 
-        let source =
-            AVAudioSourceNode {
+    // ========================================================
+    // WORKOUT AUDIO ENGINE
+    // ========================================================
 
-                [weak self]
+    private func startWorkoutEngine() -> Bool {
 
-                _,
-                _,
-                frameCount,
-                audioBufferList
-
-                -> OSStatus in
+        let engine = AVAudioEngine()
 
 
-                guard let self = self
-                else {
-                    return noErr
-                }
+        guard let format = AVAudioFormat(
+            standardFormatWithSampleRate: sampleRate,
+            channels: 1
+        ) else {
+
+            return false
+        }
 
 
-                let ablPointer =
-                    UnsafeMutableAudioBufferListPointer(
-                        audioBufferList
-                    )
+        let source = AVAudioSourceNode {
+
+            [weak self]
+
+            _,
+            _,
+            frameCount,
+            audioBufferList
+
+            -> OSStatus in
 
 
-                for frame in
-                    0..<Int(frameCount)
-                {
-
-                    let absoluteFrame =
-                        self.backgroundFrame
-                        +
-                        Int64(frame)
-
-
-                    var value:
-                        Float = 0.0
-
-
-                    // ----------------------------
-                    // WARNING BEEP @ 7
-                    // ----------------------------
-
-                    if absoluteFrame >= beep7 &&
-                       absoluteFrame <
-                            beep7 + warningLength {
-
-                        let localFrame =
-                            absoluteFrame - beep7
-
-                        let time =
-                            Double(localFrame)
-                            /
-                            self.sampleRate
-
-                        value =
-                            amplitude *
-                            Float(
-                                sin(
-                                    2.0 *
-                                    Double.pi *
-                                    frequency *
-                                    time
-                                )
-                            )
-                    }
-
-
-                    // ----------------------------
-                    // WARNING BEEP @ 8
-                    // ----------------------------
-
-                    if absoluteFrame >= beep8 &&
-                       absoluteFrame <
-                            beep8 + warningLength {
-
-                        let localFrame =
-                            absoluteFrame - beep8
-
-                        let time =
-                            Double(localFrame)
-                            /
-                            self.sampleRate
-
-                        value =
-                            amplitude *
-                            Float(
-                                sin(
-                                    2.0 *
-                                    Double.pi *
-                                    frequency *
-                                    time
-                                )
-                            )
-                    }
-
-
-                    // ----------------------------
-                    // WARNING BEEP @ 9
-                    // ----------------------------
-
-                    if absoluteFrame >= beep9 &&
-                       absoluteFrame <
-                            beep9 + warningLength {
-
-                        let localFrame =
-                            absoluteFrame - beep9
-
-                        let time =
-                            Double(localFrame)
-                            /
-                            self.sampleRate
-
-                        value =
-                            amplitude *
-                            Float(
-                                sin(
-                                    2.0 *
-                                    Double.pi *
-                                    frequency *
-                                    time
-                                )
-                            )
-                    }
-
-
-                    // ----------------------------
-                    // FINAL BEEP @ 10
-                    // ----------------------------
-
-                    if absoluteFrame >= finalStart &&
-                       absoluteFrame <
-                            finalStart + finalLength {
-
-                        let localFrame =
-                            absoluteFrame - finalStart
-
-                        let time =
-                            Double(localFrame)
-                            /
-                            self.sampleRate
-
-
-                        var envelope:
-                            Float = 1.0
-
-
-                        let fadeFrames =
-                            Int64(
-                                self.sampleRate * 0.15
-                            )
-
-
-                        if localFrame >
-                            finalLength - fadeFrames {
-
-                            envelope =
-                                Float(
-                                    finalLength -
-                                    localFrame
-                                )
-                                /
-                                Float(
-                                    fadeFrames
-                                )
-                        }
-
-
-                        value =
-                            amplitude *
-                            envelope *
-                            Float(
-                                sin(
-                                    2.0 *
-                                    Double.pi *
-                                    frequency *
-                                    time
-                                )
-                            )
-                    }
-
-
-                    for buffer
-                        in ablPointer {
-
-                        guard let data =
-                            buffer
-                                .mData?
-                                .assumingMemoryBound(
-                                    to: Float.self
-                                )
-                        else {
-                            continue
-                        }
-
-                        data[frame] =
-                            value
-                    }
-                }
-
-
-                self.backgroundFrame +=
-                    Int64(frameCount)
-
+            guard let self = self else {
 
                 return noErr
             }
 
 
-        engine.attach(
-            source
-        )
+            let buffers =
+                UnsafeMutableAudioBufferListPointer(
+                    audioBufferList
+                )
+
+
+            for frame in 0..<Int(frameCount) {
+
+                let absoluteFrame =
+                    self.workoutFrame +
+                    Int64(frame)
+
+
+                var value: Float = 0.0
+
+
+                if absoluteFrame <
+                    self.workoutTotalFrames {
+
+                    let absoluteTime =
+                        Double(absoluteFrame) /
+                        self.sampleRate
+
+
+                    value =
+                        self.sampleValue(
+                            at: absoluteTime
+                        )
+                }
+
+
+                for buffer in buffers {
+
+                    guard let data =
+                        buffer.mData?
+                            .assumingMemoryBound(
+                                to: Float.self
+                            )
+                    else {
+
+                        continue
+                    }
+
+
+                    data[frame] = value
+                }
+            }
+
+
+            self.workoutFrame +=
+                Int64(frameCount)
+
+
+            if
+                self.workoutFrame >=
+                    self.workoutTotalFrames,
+                !self.finishStopScheduled
+            {
+
+                self.finishStopScheduled = true
+                self.workoutFinished = true
+                self.workoutPaused = false
+
+
+                DispatchQueue.main.async {
+
+                    guard self.workoutFinished else {
+                        return
+                    }
+
+                    self.workoutEngine?.stop()
+
+                    self.workoutRunning = false
+                }
+            }
+
+
+            return noErr
+        }
+
+
+        engine.attach(source)
 
 
         engine.connect(
@@ -508,77 +533,191 @@ public class NativeAudioPlugin:
 
             try engine.start()
 
-            backgroundEngine =
-                engine
+            workoutEngine = engine
+            workoutSource = source
 
-            backgroundSource =
-                source
-
-            call.resolve()
+            return true
 
         } catch {
 
             print(
-                "Background engine error: \(error)"
+                "Workout audio engine error: \(error)"
             )
 
-            call.reject(
-                "Could not start background audio"
-            )
+            return false
         }
     }
 
 
     // ========================================================
-    // STOP TESTU
+    // SAMPLE GENERATOR
     // ========================================================
 
-    @objc func stopBackgroundTest(
-        _ call: CAPPluginCall
+    private func sampleValue(
+        at absoluteTime: Double
+    ) -> Float {
+
+        for index in 0..<workoutDurations.count {
+
+            let start =
+                workoutStarts[index]
+
+            let duration =
+                workoutDurations[index]
+
+
+            // Warning beeps at remaining 3, 2, 1.
+            for remaining in [3.0, 2.0, 1.0] {
+
+                let beepStart =
+                    start +
+                    duration -
+                    remaining
+
+
+                // Same behavior as the old JS timer:
+                // no beep exactly at interval start.
+                if beepStart > start {
+
+                    if let value =
+                        toneSample(
+                            absoluteTime:
+                                absoluteTime,
+                            start:
+                                beepStart,
+                            duration:
+                                0.12
+                        )
+                    {
+
+                        return value
+                    }
+                }
+            }
+
+
+            // Final 1-second beep at zero.
+            let finalStart =
+                start + duration
+
+
+            if let value =
+                toneSample(
+                    absoluteTime:
+                        absoluteTime,
+                    start:
+                        finalStart,
+                    duration:
+                        1.0
+                )
+            {
+
+                return value
+            }
+        }
+
+
+        return 0.0
+    }
+
+
+    private func toneSample(
+        absoluteTime: Double,
+        start: Double,
+        duration: Double
+    ) -> Float? {
+
+        let localTime =
+            absoluteTime - start
+
+
+        guard
+            localTime >= 0,
+            localTime < duration
+        else {
+
+            return nil
+        }
+
+
+        var envelope: Float = 1.0
+
+        let fadeDuration =
+            min(
+                0.15,
+                duration
+            )
+
+
+        if localTime >
+            duration - fadeDuration {
+
+            envelope =
+                Float(
+                    (duration - localTime) /
+                    fadeDuration
+                )
+        }
+
+
+        return
+            toneAmplitude *
+            envelope *
+            Float(
+                sin(
+                    2.0 *
+                    Double.pi *
+                    toneFrequency *
+                    localTime
+                )
+            )
+    }
+
+
+    // ========================================================
+    // RESET ENGINE
+    // ========================================================
+
+    private func stopWorkoutEngine(
+        resetState: Bool
     ) {
 
-        stopBackgroundAudio()
-
-        call.resolve()
-    }
+        workoutEngine?.stop()
 
 
-    private func stopBackgroundAudio() {
+        if let source = workoutSource {
 
-        backgroundEngine?.stop()
-
-        if let source =
-            backgroundSource {
-
-            backgroundEngine?
-                .detach(source)
+            workoutEngine?.detach(source)
         }
 
-        backgroundSource = nil
 
-        backgroundEngine = nil
+        workoutSource = nil
+        workoutEngine = nil
 
-        backgroundFrame = 0
+
+        if resetState {
+
+            workoutDurations = []
+            workoutStarts = []
+
+            workoutFrame = 0
+            workoutTotalFrames = 0
+
+            workoutRunning = false
+            workoutPaused = false
+            workoutFinished = false
+            finishStopScheduled = false
+        }
     }
 
 
     // ========================================================
-    // ZWYKŁY GENERATOR BIPU
+    // STANDALONE TONE
     // ========================================================
 
     private func playTone(
         duration: Double
     ) {
-
-        let sampleRate =
-            44100.0
-
-        let frequency =
-            800.0
-
-        let amplitude:
-            Float = 0.12
-
 
         let frameCount =
             AVAudioFrameCount(
@@ -593,6 +732,7 @@ public class NativeAudioPlugin:
                 channels: 1
             )
         else {
+
             return
         }
 
@@ -603,6 +743,7 @@ public class NativeAudioPlugin:
                 frameCapacity: frameCount
             )
         else {
+
             return
         }
 
@@ -614,23 +755,19 @@ public class NativeAudioPlugin:
         guard let data =
             buffer.floatChannelData?[0]
         else {
+
             return
         }
 
 
-        for frame in
-            0..<Int(frameCount)
-        {
+        for frame in 0..<Int(frameCount) {
 
             let time =
-                Double(frame)
-                /
+                Double(frame) /
                 sampleRate
 
 
-            var envelope:
-                Float = 1.0
-
+            var envelope: Float = 1.0
 
             let fadeDuration =
                 min(
@@ -644,37 +781,31 @@ public class NativeAudioPlugin:
 
                 envelope =
                     Float(
-                        (duration - time)
-                        /
+                        (duration - time) /
                         fadeDuration
                     )
             }
 
 
             data[frame] =
-                amplitude *
+                toneAmplitude *
                 envelope *
                 Float(
                     sin(
                         2.0 *
                         Double.pi *
-                        frequency *
+                        toneFrequency *
                         time
                     )
                 )
         }
 
 
-        let engine =
-            AVAudioEngine()
-
-        let player =
-            AVAudioPlayerNode()
+        let engine = AVAudioEngine()
+        let player = AVAudioPlayerNode()
 
 
-        engine.attach(
-            player
-        )
+        engine.attach(player)
 
 
         engine.connect(
@@ -699,11 +830,8 @@ public class NativeAudioPlugin:
             player.play()
 
 
-            beepEngine =
-                engine
-
-            beepPlayer =
-                player
+            beepEngine = engine
+            beepPlayer = player
 
         } catch {
 
@@ -719,9 +847,7 @@ public class NativeAudioPlugin:
 // CAPACITOR VIEW CONTROLLER
 // ============================================================
 
-class MyViewController:
-    CAPBridgeViewController
-{
+class MyViewController: CAPBridgeViewController {
 
     override open func capacitorDidLoad() {
 
