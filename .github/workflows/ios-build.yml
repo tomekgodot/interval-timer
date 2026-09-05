@@ -1,0 +1,44 @@
+﻿name: Build iOS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Show Xcode schemes
+        run: xcodebuild -list -project ios/App/App.xcodeproj
+
+      - name: Build iOS
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Upload iOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: IntervalTimer-iOS
+          path: build/Build/Products/Release-iphonesimulator/App.app
