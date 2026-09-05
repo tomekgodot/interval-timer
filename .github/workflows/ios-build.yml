@@ -26,19 +26,25 @@ jobs:
       - name: Show Xcode schemes
         run: xcodebuild -list -project ios/App/App.xcodeproj
 
-      - name: Build iOS
+      - name: Build for physical iPhone
         run: |
           xcodebuild \
             -project ios/App/App.xcodeproj \
             -scheme App \
             -configuration Release \
-            -sdk iphonesimulator \
+            -sdk iphoneos \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: Upload iOS app
+      - name: Create unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -r IntervalTimer-unsigned.ipa Payload
+
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: IntervalTimer-iOS
-          path: build/Build/Products/Release-iphonesimulator/App.app
+          name: IntervalTimer-iPhone
+          path: IntervalTimer-unsigned.ipa
