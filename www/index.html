@@ -1606,6 +1606,26 @@
 
     function warningBeep() {
 
+    alert(
+        "NativeAudio exists: " +
+        !!(
+            window.Capacitor &&
+            Capacitor.Plugins &&
+            Capacitor.Plugins.NativeAudio
+        )
+    );
+
+    if (
+        window.Capacitor &&
+        Capacitor.Plugins &&
+        Capacitor.Plugins.NativeAudio
+    ) {
+
+        Capacitor.Plugins.NativeAudio.warningBeep();
+
+        return;
+    }
+
     if (
         window.Capacitor &&
         Capacitor.Plugins &&
