@@ -76,7 +76,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 // ============================================================
 
 @objc(NativeAudioPlugin)
-public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
+public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizerDelegate {
 
     public let identifier = "NativeAudioPlugin"
     public let jsName = "NativeAudio"
@@ -176,6 +176,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
         super.load()
 
+        speechSynthesizer.delegate = self
         configureAudioSession()
     }
 
@@ -756,6 +757,27 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
             )
         }
 
+        // Na czas komendy ściszamy inne audio, np. Spotify.
+        do {
+            let session =
+                AVAudioSession.sharedInstance()
+
+            try session.setCategory(
+                .playback,
+                mode: .spokenAudio,
+                options: [
+                    .mixWithOthers,
+                    .duckOthers
+                ]
+            )
+
+            try session.setActive(true)
+        } catch {
+            print(
+                "Speech ducking audio session error: \(error)"
+            )
+        }
+
         let utterance =
             AVSpeechUtterance(
                 string: text
@@ -774,6 +796,46 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         speechSynthesizer.speak(
             utterance
         )
+    }
+
+
+    public func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didFinish utterance: AVSpeechUtterance
+    ) {
+        restoreMixedAudioSession()
+    }
+
+
+    public func speechSynthesizer(
+        _ synthesizer: AVSpeechSynthesizer,
+        didCancel utterance: AVSpeechUtterance
+    ) {
+        restoreMixedAudioSession()
+    }
+
+
+    private func restoreMixedAudioSession() {
+        DispatchQueue.main.async {
+            do {
+                let session =
+                    AVAudioSession.sharedInstance()
+
+                try session.setCategory(
+                    .playback,
+                    mode: .default,
+                    options: [
+                        .mixWithOthers
+                    ]
+                )
+
+                try session.setActive(true)
+            } catch {
+                print(
+                    "Restore mixed audio session error: \(error)"
+                )
+            }
+        }
     }
 
 
