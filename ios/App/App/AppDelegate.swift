@@ -152,8 +152,11 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private var liveActivityIndex: Int = -1
 
-    private var liveActivity:
-        Activity<IntervalTimerAttributes>?
+    // Stored as Any so the main app can keep iOS 15.0 as its
+    // deployment target. ActivityKit's Activity type is only
+    // available on newer iOS versions and is cast only inside
+    // @available(iOS 16.2, *) methods below.
+    private var liveActivityStorage: Any?
 
     private var workoutFrame: Int64 = 0
     private var workoutTotalFrames: Int64 = 0
@@ -843,7 +846,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
             do {
 
-                liveActivity =
+                let activity =
                     try Activity.request(
                         attributes:
                             attributes,
@@ -851,6 +854,9 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
                             content,
                         pushType: nil
                     )
+
+                liveActivityStorage =
+                    activity
 
                 liveActivityIndex = 0
 
@@ -871,7 +877,9 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     ) async {
 
         guard
-            let activity = liveActivity,
+            let activity =
+                liveActivityStorage
+                    as? Activity<IntervalTimerAttributes>,
             !workoutItems.isEmpty
         else {
 
@@ -952,9 +960,11 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     private func endLiveActivity() async {
 
         guard let activity =
-            liveActivity
+            liveActivityStorage
+                as? Activity<IntervalTimerAttributes>
         else {
 
+            liveActivityStorage = nil
             return
         }
 
@@ -966,7 +976,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         )
 
 
-        liveActivity = nil
+        liveActivityStorage = nil
     }
 
 
