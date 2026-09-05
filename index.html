@@ -342,6 +342,30 @@
             background: #fdfcfb;
         }
 
+        .section-command {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 12px 0 16px;
+        }
+
+        .section-command label {
+            font-size: 13px;
+            font-weight: 700;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        .section-command input {
+            flex: 1;
+            min-width: 0;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 15px;
+            background: #fff;
+        }
+
         .section-header {
             display: flex;
 
@@ -646,6 +670,7 @@
     let training = [
 
         {
+            command: "",
             repeats: 10,
 
             intervals: [
@@ -655,6 +680,7 @@
         },
 
         {
+            command: "",
             repeats: 1,
 
             intervals: [
@@ -663,6 +689,7 @@
         },
 
         {
+            command: "",
             repeats: 1,
 
             intervals: [
@@ -780,6 +807,22 @@
 
                 </div>
 
+                <div class="section-command">
+                    <label>Komenda:</label>
+                    <input
+                        type="text"
+                        maxlength="80"
+                        placeholder="np. Pompki"
+                        value="${escapeHtml(section.command || "")}"
+                        onchange="
+                            changeSectionCommand(
+                                ${sectionIndex},
+                                this.value
+                            )
+                        "
+                    >
+                </div>
+
 
                 <div>
 
@@ -846,6 +889,19 @@
 
         });
 
+    }
+
+
+    // =========================================================
+    // KOMENDA GŁOSOWA SEKCJI
+    // =========================================================
+
+    function changeSectionCommand(
+        sectionIndex,
+        value
+    ) {
+        training[sectionIndex].command =
+            String(value || "").trim();
     }
 
 
@@ -996,6 +1052,7 @@
 
         training.push({
 
+            command: "",
             repeats: 1,
 
             intervals: [
@@ -1191,7 +1248,11 @@
                             sectionText:
                                 `Sekcja ${item.sectionIndex + 1} · Interwał ${item.intervalIndex + 1}/${training[item.sectionIndex].intervals.length}`,
                             repeatText:
-                                `Sekcja ${item.sectionRepeat}/${training[item.sectionIndex].repeats} · Trening ${item.trainingRepeat}/${trainingRepeats}`
+                                `Sekcja ${item.sectionRepeat}/${training[item.sectionIndex].repeats} · Trening ${item.trainingRepeat}/${trainingRepeats}`,
+                            sectionCommand:
+                                item.sectionCommand,
+                            announceSection:
+                                item.announceSection
                         })
                     )
                 })
@@ -1306,7 +1367,14 @@
                                         sectionRepeat,
 
                                     trainingRepeat:
-                                        trainingRepeat
+                                        trainingRepeat,
+
+                                    sectionCommand:
+                                        String(section.command || "").trim(),
+
+                                    announceSection:
+                                        sectionRepeat === 1 &&
+                                        intervalIndex === 0
 
                                 });
 
@@ -2320,6 +2388,13 @@
                     workout.training
                 )
             );
+
+        // Starsze zapisane treningi nie miały pola "command".
+        training.forEach(section => {
+            if (typeof section.command !== "string") {
+                section.command = "";
+            }
+        });
 
 
         document.getElementById(

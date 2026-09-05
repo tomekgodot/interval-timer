@@ -134,6 +134,9 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     private var workoutEngine: AVAudioEngine?
     private var workoutSource: AVAudioSourceNode?
 
+    private let speechSynthesizer = AVSpeechSynthesizer()
+    private var lastAnnouncedItemIndex: Int = -1
+
 
     // ========================================================
     // WORKOUT STATE
@@ -144,6 +147,8 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         let start: Double
         let sectionText: String
         let repeatText: String
+        let sectionCommand: String
+        let announceSection: Bool
     }
 
     private var workoutItems: [WorkoutItem] = []
@@ -248,7 +253,9 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
             (
                 duration: Double,
                 sectionText: String,
-                repeatText: String
+                repeatText: String,
+                sectionCommand: String,
+                announceSection: Bool
             )
         ] = []
 
@@ -279,11 +286,21 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
                 ?? ""
 
 
+            let sectionCommand =
+                rawItem["sectionCommand"] as? String
+                ?? ""
+
+            let announceSection =
+                rawItem["announceSection"] as? Bool
+                ?? false
+
             parsedItems.append(
                 (
                     duration,
                     sectionText,
-                    repeatText
+                    repeatText,
+                    sectionCommand,
+                    announceSection
                 )
             )
         }
@@ -318,7 +335,9 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
                     duration: item.duration,
                     start: cursor,
                     sectionText: item.sectionText,
-                    repeatText: item.repeatText
+                    repeatText: item.repeatText,
+                    sectionCommand: item.sectionCommand,
+                    announceSection: item.announceSection
                 )
             )
 
@@ -329,6 +348,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
         workoutFrame = 0
         liveActivityIndex = -1
+        lastAnnouncedItemIndex = -1
 
         workoutTotalFrames =
             Int64(
@@ -606,6 +626,35 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
                 self.liveActivityIndex =
                     newIndex
 
+                if
+                    newIndex != self.lastAnnouncedItemIndex,
+                    newIndex < self.workoutItems.count
+                {
+                    let item =
+                        self.workoutItems[newIndex]
+
+                    if
+                        item.announceSection,
+                        !item.sectionCommand
+                            .trimmingCharacters(
+                                in: .whitespacesAndNewlines
+                            )
+                            .isEmpty
+                    {
+                        self.lastAnnouncedItemIndex =
+                            newIndex
+
+                        let command =
+                            item.sectionCommand
+
+                        DispatchQueue.main.async {
+                            self.speakSectionCommand(
+                                command
+                            )
+                        }
+                    }
+                }
+
 
                 if #available(iOS 16.2, *) {
 
@@ -681,6 +730,50 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
             return false
         }
+    }
+
+
+    // ========================================================
+    // SPOKEN SECTION COMMAND
+    // ========================================================
+
+    @MainActor
+    private func speakSectionCommand(
+        _ command: String
+    ) {
+        let text =
+            command.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+
+        guard !text.isEmpty else {
+            return
+        }
+
+        if speechSynthesizer.isSpeaking {
+            speechSynthesizer.stopSpeaking(
+                at: .immediate
+            )
+        }
+
+        let utterance =
+            AVSpeechUtterance(
+                string: text
+            )
+
+        utterance.voice =
+            AVSpeechSynthesisVoice(
+                language: "pl-PL"
+            )
+
+        utterance.rate =
+            AVSpeechUtteranceDefaultSpeechRate
+
+        utterance.volume = 1.0
+
+        speechSynthesizer.speak(
+            utterance
+        )
     }
 
 
@@ -777,49 +870,8 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     private func showLiveActivityDiagnostic(
         _ message: String
     ) {
-
-        print("LIVE ACTIVITY DIAGNOSTIC: \(message)")
-
-        guard let viewController =
-            bridge?.viewController
-        else {
-
-            print(
-                "LIVE ACTIVITY DIAGNOSTIC: no bridge view controller"
-            )
-
-            return
-        }
-
-        // Do not stack diagnostic alerts if START is tapped again.
-        if viewController.presentedViewController
-            is UIAlertController
-        {
-            viewController.dismiss(
-                animated: false
-            )
-        }
-
-        let alert =
-            UIAlertController(
-                title:
-                    "Live Activity – diagnostyka",
-                message:
-                    message,
-                preferredStyle:
-                    .alert
-            )
-
-        alert.addAction(
-            UIAlertAction(
-                title: "OK",
-                style: .default
-            )
-        )
-
-        viewController.present(
-            alert,
-            animated: true
+        print(
+            "LIVE ACTIVITY DIAGNOSTIC: \(message)"
         )
     }
 
