@@ -152,7 +152,6 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private var liveActivityIndex: Int = -1
 
-    @available(iOS 16.1, *)
     private var liveActivity:
         Activity<IntervalTimerAttributes>?
 
@@ -349,7 +348,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
 
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
 
             Task { @MainActor in
                 self.startLiveActivity()
@@ -384,7 +383,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
         workoutPaused = true
 
 
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
 
             Task { @MainActor in
                 await self.updateLiveActivity(
@@ -425,7 +424,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
             workoutPaused = false
 
 
-            if #available(iOS 16.1, *) {
+            if #available(iOS 16.2, *) {
 
                 Task { @MainActor in
                     await self.updateLiveActivity(
@@ -452,7 +451,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func stopWorkout(_ call: CAPPluginCall) {
 
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
 
             Task { @MainActor in
                 await self.endLiveActivity()
@@ -605,7 +604,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
                     newIndex
 
 
-                if #available(iOS 16.1, *) {
+                if #available(iOS 16.2, *) {
 
                     Task { @MainActor in
                         await self.updateLiveActivity(
@@ -638,7 +637,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
                     self.workoutRunning = false
 
 
-                    if #available(iOS 16.1, *) {
+                    if #available(iOS 16.2, *) {
 
                         Task { @MainActor in
                             await self.endLiveActivity()
@@ -771,7 +770,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     // LIVE ACTIVITY
     // ========================================================
 
-    @available(iOS 16.1, *)
+    @available(iOS 16.2, *)
     @MainActor
     private func startLiveActivity() {
 
@@ -865,7 +864,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
 
-    @available(iOS 16.1, *)
+    @available(iOS 16.2, *)
     @MainActor
     private func updateLiveActivity(
         paused: Bool
@@ -948,7 +947,7 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
 
-    @available(iOS 16.1, *)
+    @available(iOS 16.2, *)
     @MainActor
     private func endLiveActivity() async {
 
