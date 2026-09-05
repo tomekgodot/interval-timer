@@ -523,6 +523,9 @@
         </div>
 
         <div class="buttons">
+            <button onclick="testBackgroundAudio()">
+                TEST LOCK
+            </button>
 
             <button
                 class="start"
@@ -697,6 +700,18 @@
 
     let remainingTrainingSeconds = 0;
 
+     function testBackgroundAudio() {
+
+    if (
+        window.Capacitor &&
+        Capacitor.Plugins &&
+        Capacitor.Plugins.NativeAudio
+    ) {
+
+        Capacitor.Plugins.NativeAudio.backgroundTest();
+
+    }
+}   
 
     // =========================================================
     // WYŚWIETLANIE TRENINGU
