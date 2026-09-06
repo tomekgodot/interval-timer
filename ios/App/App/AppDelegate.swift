@@ -821,6 +821,17 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizer
                 let session =
                     AVAudioSession.sharedInstance()
 
+                // Kluczowe: samo przestawienie kategorii nie zawsze
+                // cofa ducking w Spotify. Najpierw dezaktywujemy
+                // sesję i jawnie informujemy inne aplikacje audio,
+                // że mogą wrócić do normalnej głośności.
+                try session.setActive(
+                    false,
+                    options: [
+                        .notifyOthersOnDeactivation
+                    ]
+                )
+
                 try session.setCategory(
                     .playback,
                     mode: .default,
@@ -830,6 +841,20 @@ public class NativeAudioPlugin: CAPPlugin, CAPBridgedPlugin, AVSpeechSynthesizer
                 )
 
                 try session.setActive(true)
+
+                // Dezaktywacja sesji może zatrzymać AVAudioEngine,
+                // więc po przywróceniu sesji uruchamiamy go ponownie,
+                // jeśli trening nadal ma działać.
+                if
+                    self.workoutRunning,
+                    !self.workoutPaused,
+                    !self.workoutFinished,
+                    let engine = self.workoutEngine,
+                    !engine.isRunning
+                {
+                    try engine.start()
+                }
+
             } catch {
                 print(
                     "Restore mixed audio session error: \(error)"
