@@ -40,6 +40,7 @@ let currentTime = 0;
 let timerId = null;
 let transitionTimeoutId = null;
 let audioContext = null;
+let wakeLockSentinel = null;
 
 let totalTrainingSeconds = 0;
 let remainingTrainingSeconds = 0;
@@ -91,6 +92,7 @@ function init() {
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && running && !paused) {
+      requestWakeLock();
       timerTick();
     }
   });
@@ -365,6 +367,7 @@ function startTraining() {
 
   running = true;
   paused = false;
+  requestWakeLock();
   playCurrentInterval();
 }
 
@@ -531,6 +534,7 @@ function pauseTimer() {
   }
 
   clearTimerHandles();
+  releaseWakeLock();
   els.status.textContent = "Pauza";
 
   if ("speechSynthesis" in window) {
@@ -543,6 +547,7 @@ function resumeTimer() {
 
   paused = false;
   running = true;
+  requestWakeLock();
 
   if (pausedSecondsLeft === null) {
     goToNextInterval();
@@ -554,6 +559,7 @@ function resumeTimer() {
 
 function stopTimer() {
   clearTimerHandles();
+  releaseWakeLock();
 
   if ("speechSynthesis" in window) {
     window.speechSynthesis.cancel();
@@ -585,6 +591,7 @@ function resetPosition() {
 
 function finishTraining() {
   clearTimerHandles();
+  releaseWakeLock();
   running = false;
   paused = false;
   pausedSecondsLeft = null;
@@ -595,6 +602,44 @@ function finishTraining() {
 
   remainingTrainingSeconds = 0;
   currentSection = training.length;
+}
+
+
+async function requestWakeLock() {
+  if (!("wakeLock" in navigator)) {
+    return;
+  }
+
+  if (!running || paused || document.visibilityState !== "visible") {
+    return;
+  }
+
+  if (wakeLockSentinel && !wakeLockSentinel.released) {
+    return;
+  }
+
+  try {
+    const sentinel = await navigator.wakeLock.request("screen");
+    wakeLockSentinel = sentinel;
+
+    sentinel.addEventListener("release", () => {
+      if (wakeLockSentinel === sentinel) {
+        wakeLockSentinel = null;
+      }
+    });
+  } catch (error) {
+    wakeLockSentinel = null;
+    console.warn("Screen Wake Lock unavailable:", error);
+  }
+}
+
+function releaseWakeLock() {
+  const sentinel = wakeLockSentinel;
+  wakeLockSentinel = null;
+
+  if (sentinel && !sentinel.released) {
+    sentinel.release().catch(() => {});
+  }
 }
 
 function clearTimerHandles() {
