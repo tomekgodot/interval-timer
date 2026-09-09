@@ -670,29 +670,46 @@ function makeBeep(duration, gainValue) {
   prepareAudio();
   if (!audioContext) return;
 
-  const oscillator = audioContext.createOscillator();
-  const gain = audioContext.createGain();
   const now = audioContext.currentTime;
+  const master = audioContext.createGain();
+  const compressor = audioContext.createDynamicsCompressor();
 
-  oscillator.type = "sine";
-  oscillator.frequency.value = 800;
+  // A sharper two-tone signal cuts through music better than a quiet sine wave.
+  compressor.threshold.setValueAtTime(-18, now);
+  compressor.knee.setValueAtTime(8, now);
+  compressor.ratio.setValueAtTime(8, now);
+  compressor.attack.setValueAtTime(0.003, now);
+  compressor.release.setValueAtTime(0.08, now);
 
-  gain.gain.setValueAtTime(gainValue, now);
-  gain.gain.setValueAtTime(gainValue, now + Math.max(0, duration - 0.15));
-  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  master.gain.setValueAtTime(0.001, now);
+  master.gain.linearRampToValueAtTime(gainValue, now + 0.008);
+  master.gain.setValueAtTime(gainValue, now + Math.max(0.008, duration - 0.04));
+  master.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
-  oscillator.connect(gain);
-  gain.connect(audioContext.destination);
-  oscillator.start(now);
-  oscillator.stop(now + duration);
+  master.connect(compressor);
+  compressor.connect(audioContext.destination);
+
+  [1050, 2100].forEach((frequency, index) => {
+    const oscillator = audioContext.createOscillator();
+    const voiceGain = audioContext.createGain();
+
+    oscillator.type = index === 0 ? "square" : "triangle";
+    oscillator.frequency.setValueAtTime(frequency, now);
+    voiceGain.gain.setValueAtTime(index === 0 ? 0.72 : 0.28, now);
+
+    oscillator.connect(voiceGain);
+    voiceGain.connect(master);
+    oscillator.start(now);
+    oscillator.stop(now + duration);
+  });
 }
 
 function warningBeep() {
-  makeBeep(0.12, 0.18);
+  makeBeep(0.14, 0.82);
 }
 
 function finalBeep() {
-  makeBeep(1.0, 0.22);
+  makeBeep(1.0, 0.92);
 }
 
 function loadSavedWorkouts() {
