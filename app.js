@@ -464,8 +464,6 @@ function speak(text) {
   const safeText = cleanText(text, LIMITS.maxCommandLength);
   if (!safeText) return;
 
-  window.speechSynthesis.cancel();
-
   const utterance = new SpeechSynthesisUtterance(safeText);
   utterance.lang = "pl-PL";
   utterance.rate = 1;
