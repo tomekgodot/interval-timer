@@ -1,5 +1,5 @@
 "use strict";
-
+const APP_VERSION = "1.0.1";
 /*
   Interval Timer — secure web build
 
@@ -100,6 +100,20 @@ function init() {
     }
   });
 }
+  const versionBadge = document.createElement("div");
+  versionBadge.textContent = `v${APP_VERSION}`;
+  versionBadge.style.cssText = `
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    right: 10px;
+    font-size: 10px;
+    font-family: system-ui, sans-serif;
+    color: #888;
+    opacity: 0.65;
+    z-index: 9999;
+    pointer-events: none;
+  `;
+  document.body.appendChild(versionBadge);
 
 function initBeepVolumeControl() {
   try {
