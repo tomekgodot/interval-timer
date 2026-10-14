@@ -59,6 +59,13 @@ const els = {};
 document.addEventListener("DOMContentLoaded", init);
 
 function init() {
+    if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistration().then(registration => {
+      if (registration) {
+        registration.update().catch(console.warn);
+      }
+    });
+  }
   els.timer = document.getElementById("timer");
   els.remainingTime = document.getElementById("remainingTime");
   els.status = document.getElementById("status");
