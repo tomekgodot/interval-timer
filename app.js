@@ -12,6 +12,8 @@
 */
 
 const STORAGE_KEY = "intervalTimerWorkouts";
+const BEEP_VOLUME_KEY = "intervalTimerBeepVolume";
+let beepVolume = 70;
 const LIMITS = Object.freeze({
   maxNameLength: 80,
   maxCommandLength: 80,
@@ -64,6 +66,7 @@ function init() {
   els.savedWorkouts = document.getElementById("savedWorkouts");
   els.trainingName = document.getElementById("trainingName");
   els.trainingRepeats = document.getElementById("trainingRepeats");
+  initBeepVolumeControl();
 
   document.getElementById("startButton").addEventListener("click", startTraining);
   document.getElementById("pauseButton").addEventListener("click", pauseTimer);
@@ -96,6 +99,67 @@ function init() {
       timerTick();
     }
   });
+}
+
+function initBeepVolumeControl() {
+  try {
+    const saved = localStorage.getItem(BEEP_VOLUME_KEY);
+    if (saved !== null && saved.trim() !== "") {
+      const parsed = Number(saved);
+      if (Number.isFinite(parsed)) {
+        beepVolume = Math.max(0, Math.min(100, Math.round(parsed)));
+      }
+    }
+  } catch (error) {
+    console.warn("Could not load beep volume:", error);
+  }
+
+  const control = document.createElement("div");
+  control.style.cssText =
+    "padding:12px 16px;margin:12px 0;border:1px solid #d9dce5;border-radius:12px;";
+
+  const label = document.createElement("label");
+  label.htmlFor = "beepVolume";
+  label.style.cssText =
+    "display:flex;justify-content:space-between;gap:12px;font-weight:600;";
+
+  const title = document.createElement("span");
+  title.textContent = "Głośność bipów";
+
+  const value = document.createElement("span");
+  value.textContent = `${beepVolume}%`;
+  label.append(title, value);
+
+  const slider = document.createElement("input");
+  slider.id = "beepVolume";
+  slider.type = "range";
+  slider.min = "0";
+  slider.max = "100";
+  slider.step = "5";
+  slider.value = String(beepVolume);
+  slider.style.cssText =
+    "display:block;width:100%;margin:12px 0 2px;accent-color:#8272c7;";
+
+  slider.addEventListener("input", () => {
+    beepVolume = Number(slider.value);
+    value.textContent = `${beepVolume}%`;
+    try {
+      localStorage.setItem(BEEP_VOLUME_KEY, String(beepVolume));
+    } catch (error) {
+      console.warn("Could not save beep volume:", error);
+    }
+  });
+
+  control.append(label, slider);
+
+  const startButton = document.getElementById("startButton");
+  const buttonContainer = startButton?.parentElement;
+
+  if (buttonContainer?.parentElement) {
+    buttonContainer.parentElement.insertBefore(control, buttonContainer);
+  } else {
+    document.body.appendChild(control);
+  }
 }
 
 function structuredCloneSafe(value) {
@@ -180,16 +244,26 @@ function displayTraining() {
     commandLabel.htmlFor = commandId;
     commandLabel.textContent = "Komenda:";
 
-    const commandInput = document.createElement("input");
+    const commandInput = document.createElement("select");
     commandInput.id = commandId;
-    commandInput.type = "text";
-    commandInput.maxLength = LIMITS.maxCommandLength;
-    commandInput.autocomplete = "off";
-    commandInput.placeholder = "np. Pompki";
-    commandInput.value = section.command;
+
+    const noCommandOption = document.createElement("option");
+    noCommandOption.value = "";
+    noCommandOption.textContent = "Brak";
+    commandInput.appendChild(noCommandOption);
+
+    for (let number = 1; number <= 20; number++) {
+      const option = document.createElement("option");
+      option.value = String(number);
+      option.textContent = String(number);
+      commandInput.appendChild(option);
+    }
+
+    commandInput.value = /^([1-9]|1[0-9]|20)$/.test(String(section.command))
+      ? String(section.command)
+      : "";
     commandInput.addEventListener("change", () => {
       changeSectionCommand(sectionIndex, commandInput.value);
-      commandInput.value = training[sectionIndex].command;
     });
 
     commandRow.append(commandLabel, commandInput);
@@ -459,18 +533,15 @@ function maybeSpeakSectionCommand() {
 }
 
 function speak(text) {
-  if (!("speechSynthesis" in window)) return;
+  const number = clampInteger(text, 1, 20, 0);
+  if (number < 1 || number > 20) return;
 
-  const safeText = cleanText(text, LIMITS.maxCommandLength);
-  if (!safeText) return;
-
-  const utterance = new SpeechSynthesisUtterance(safeText);
-  utterance.lang = "pl-PL";
-  utterance.rate = 1;
-  utterance.pitch = 1;
-  utterance.volume = 1;
-
-  window.speechSynthesis.speak(utterance);
+  const audio = new Audio(`./audio/command-${number}.wav`);
+  audio.preload = "auto";
+  audio.volume = 1;
+  audio.play().catch(error => {
+    console.warn("Could not play section command:", error);
+  });
 }
 
 function goToNextInterval() {
@@ -535,9 +606,6 @@ function pauseTimer() {
   releaseWakeLock();
   els.status.textContent = "Pauza";
 
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-  }
 }
 
 function resumeTimer() {
@@ -559,9 +627,6 @@ function stopTimer() {
   clearTimerHandles();
   releaseWakeLock();
 
-  if ("speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
-  }
 
   running = false;
   paused = false;
@@ -665,6 +730,8 @@ function prepareAudio() {
 }
 
 function makeBeep(duration, gainValue) {
+  if (beepVolume <= 0) return;
+  gainValue *= beepVolume / 100;
   prepareAudio();
   if (!audioContext) return;
 
@@ -791,7 +858,9 @@ function normalizeTraining(rawTraining) {
     if (intervals.length === 0) continue;
 
     safeSections.push({
-      command: cleanText(rawSection.command, LIMITS.maxCommandLength),
+      command: /^([1-9]|1[0-9]|20)$/.test(String(rawSection.command ?? ""))
+        ? String(rawSection.command)
+        : "",
       repeats: clampInteger(
         rawSection.repeats,
         1,
