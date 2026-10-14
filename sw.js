@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "interval-timer-v9";
+const CACHE_NAME = "interval-timer-v10";
 
 const APP_SHELL = [
   "./",

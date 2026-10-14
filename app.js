@@ -1,5 +1,5 @@
 "use strict";
-const APP_VERSION = "1.0.1";
+const APP_VERSION = "1.0.2";
 /*
   Interval Timer — secure web build
 
@@ -773,9 +773,9 @@ function makeBeep(duration, gainValue) {
 
     const volumeControl = audioContext.createGain();
   volumeControl.gain.setValueAtTime(
-    Math.pow(beepVolume / 100, 2),
-    now
-  );
+  Math.pow(beepVolume / 100, 4),
+  now
+);
 
   master.connect(compressor);
   compressor.connect(volumeControl);
