@@ -731,7 +731,6 @@ function prepareAudio() {
 
 function makeBeep(duration, gainValue) {
   if (beepVolume <= 0) return;
-  gainValue *= beepVolume / 100;
   prepareAudio();
   if (!audioContext) return;
 
@@ -751,8 +750,15 @@ function makeBeep(duration, gainValue) {
   master.gain.setValueAtTime(gainValue, now + Math.max(0.008, duration - 0.04));
   master.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
+    const volumeControl = audioContext.createGain();
+  volumeControl.gain.setValueAtTime(
+    Math.pow(beepVolume / 100, 2),
+    now
+  );
+
   master.connect(compressor);
-  compressor.connect(audioContext.destination);
+  compressor.connect(volumeControl);
+  volumeControl.connect(audioContext.destination);
 
   [1050, 2100].forEach((frequency, index) => {
     const oscillator = audioContext.createOscillator();
