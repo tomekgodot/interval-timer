@@ -1,5 +1,5 @@
 "use strict";
-const APP_VERSION = "1.0.2";
+const APP_VERSION = "1.0.3";
 /*
   Interval Timer — secure web build
 
@@ -52,7 +52,7 @@ let paused = false;
 let intervalDeadlineMs = 0;
 let pausedSecondsLeft = null;
 let lastDisplayedSecond = null;
-let announcedSectionKey = null;
+let scheduledBeeps = [];
 
 const els = {};
 
@@ -257,38 +257,6 @@ function displayTraining() {
     repeatBox.append(repeatLabel, repeatInput, times, deleteSectionButton);
     header.append(title, repeatBox);
 
-    const commandRow = document.createElement("div");
-    commandRow.className = "section-command";
-
-    const commandLabel = document.createElement("label");
-    const commandId = `section-command-${sectionIndex}`;
-    commandLabel.htmlFor = commandId;
-    commandLabel.textContent = "Komenda:";
-
-    const commandInput = document.createElement("select");
-    commandInput.id = commandId;
-
-    const noCommandOption = document.createElement("option");
-    noCommandOption.value = "";
-    noCommandOption.textContent = "Brak";
-    commandInput.appendChild(noCommandOption);
-
-    for (let number = 1; number <= 20; number++) {
-      const option = document.createElement("option");
-      option.value = String(number);
-      option.textContent = String(number);
-      commandInput.appendChild(option);
-    }
-
-    commandInput.value = /^([1-9]|1[0-9]|20)$/.test(String(section.command))
-      ? String(section.command)
-      : "";
-    commandInput.addEventListener("change", () => {
-      changeSectionCommand(sectionIndex, commandInput.value);
-    });
-
-    commandRow.append(commandLabel, commandInput);
-
     const intervalContainer = document.createElement("div");
 
     section.intervals.forEach((interval, intervalIndex) => {
@@ -333,15 +301,9 @@ function displayTraining() {
       () => addInterval(sectionIndex)
     );
 
-    sectionDiv.append(header, commandRow, intervalContainer, addIntervalButton);
+    sectionDiv.append(header, intervalContainer, addIntervalButton);
     els.sections.appendChild(sectionDiv);
   });
-}
-
-function changeSectionCommand(sectionIndex, value) {
-  const section = training[sectionIndex];
-  if (!section) return;
-  section.command = cleanText(value, LIMITS.maxCommandLength);
 }
 
 function changeInterval(sectionIndex, intervalIndex, value) {
@@ -482,7 +444,7 @@ function playCurrentInterval() {
     return;
   }
 
-  maybeSpeakSectionCommand();
+
 
   const seconds = pausedSecondsLeft ?? interval.seconds;
   pausedSecondsLeft = null;
@@ -493,6 +455,7 @@ function playCurrentInterval() {
   els.timer.textContent = String(currentTime);
   updateStatus();
 
+  scheduleIntervalBeeps(seconds);
   timerId = window.setInterval(timerTick, 100);
   timerTick();
 }
@@ -509,9 +472,7 @@ function timerTick() {
     currentTime = secondsLeft;
     els.timer.textContent = String(secondsLeft);
 
-    if (secondsLeft === 3 || secondsLeft === 2 || secondsLeft === 1) {
-      warningBeep();
-    }
+
 
     if (typeof previous === "number" && previous > secondsLeft) {
       remainingTrainingSeconds = Math.max(
@@ -527,42 +488,13 @@ function timerTick() {
     timerId = null;
     currentTime = 0;
     els.timer.textContent = "0";
-    finalBeep();
+
 
     transitionTimeoutId = window.setTimeout(() => {
       transitionTimeoutId = null;
       goToNextInterval();
     }, 1000);
   }
-}
-
-function maybeSpeakSectionCommand() {
-  const section = training[currentSection];
-  if (!section) return;
-
-  const shouldAnnounce =
-    currentSectionRepeat === 1 &&
-    currentInterval === 0 &&
-    section.command;
-
-  const key = `${currentTrainingRepeat}:${currentSection}`;
-
-  if (shouldAnnounce && announcedSectionKey !== key) {
-    announcedSectionKey = key;
-    speak(section.command);
-  }
-}
-
-function speak(text) {
-  const number = clampInteger(text, 1, 20, 0);
-  if (number < 1 || number > 20) return;
-
-  const audio = new Audio(`./audio/command-${number}.wav`);
-  audio.preload = "auto";
-  audio.volume = 1;
-  audio.play().catch(error => {
-    console.warn("Could not play section command:", error);
-  });
 }
 
 function goToNextInterval() {
@@ -652,7 +584,7 @@ function stopTimer() {
   running = false;
   paused = false;
   pausedSecondsLeft = null;
-  announcedSectionKey = null;
+
 
   resetPosition();
 
@@ -670,7 +602,7 @@ function resetPosition() {
   currentSectionRepeat = 1;
   currentTrainingRepeat = 1;
   currentTime = 0;
-  announcedSectionKey = null;
+
 }
 
 function finishTraining() {
@@ -726,7 +658,31 @@ function releaseWakeLock() {
   }
 }
 
+function cancelScheduledBeeps() {
+  for (const oscillator of scheduledBeeps) {
+    try {
+      oscillator.stop();
+      oscillator.disconnect();
+    } catch {}
+  }
+  scheduledBeeps = [];
+}
+
+function scheduleIntervalBeeps(seconds) {
+  cancelScheduledBeeps();
+  prepareAudio();
+
+  for (const warning of [3, 2, 1]) {
+    if (seconds > warning) {
+      makeBeep(0.14, 0.82, seconds - warning);
+    }
+  }
+
+  makeBeep(1.0, 0.92, seconds);
+}
+
 function clearTimerHandles() {
+  cancelScheduledBeeps();
   if (timerId !== null) {
     window.clearInterval(timerId);
     timerId = null;
@@ -750,12 +706,12 @@ function prepareAudio() {
   }
 }
 
-function makeBeep(duration, gainValue) {
+function makeBeep(duration, gainValue, delay = 0) {
   if (beepVolume <= 0) return;
   prepareAudio();
   if (!audioContext) return;
 
-  const now = audioContext.currentTime;
+  const now = audioContext.currentTime + Math.max(0, delay);
   const master = audioContext.createGain();
   const compressor = audioContext.createDynamicsCompressor();
 
@@ -791,6 +747,10 @@ function makeBeep(duration, gainValue) {
 
     oscillator.connect(voiceGain);
     voiceGain.connect(master);
+    scheduledBeeps.push(oscillator);
+    oscillator.onended = () => {
+      scheduledBeeps = scheduledBeeps.filter(item => item !== oscillator);
+    };
     oscillator.start(now);
     oscillator.stop(now + duration);
   });
@@ -885,9 +845,7 @@ function normalizeTraining(rawTraining) {
     if (intervals.length === 0) continue;
 
     safeSections.push({
-      command: /^([1-9]|1[0-9]|20)$/.test(String(rawSection.command ?? ""))
-        ? String(rawSection.command)
-        : "",
+      command: "",
       repeats: clampInteger(
         rawSection.repeats,
         1,
