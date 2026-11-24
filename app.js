@@ -1,5 +1,5 @@
 "use strict";
-const APP_VERSION = "1.0.3";
+
 /*
   Interval Timer — secure web build
 
@@ -12,8 +12,6 @@ const APP_VERSION = "1.0.3";
 */
 
 const STORAGE_KEY = "intervalTimerWorkouts";
-const BEEP_VOLUME_KEY = "intervalTimerBeepVolume";
-let beepVolume = 70;
 const LIMITS = Object.freeze({
   maxNameLength: 80,
   maxCommandLength: 80,
@@ -52,20 +50,13 @@ let paused = false;
 let intervalDeadlineMs = 0;
 let pausedSecondsLeft = null;
 let lastDisplayedSecond = null;
-let scheduledBeeps = [];
+let announcedSectionKey = null;
 
 const els = {};
 
 document.addEventListener("DOMContentLoaded", init);
 
 function init() {
-    if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.getRegistration().then(registration => {
-      if (registration) {
-        registration.update().catch(console.warn);
-      }
-    });
-  }
   els.timer = document.getElementById("timer");
   els.remainingTime = document.getElementById("remainingTime");
   els.status = document.getElementById("status");
@@ -73,7 +64,6 @@ function init() {
   els.savedWorkouts = document.getElementById("savedWorkouts");
   els.trainingName = document.getElementById("trainingName");
   els.trainingRepeats = document.getElementById("trainingRepeats");
-  initBeepVolumeControl();
 
   document.getElementById("startButton").addEventListener("click", startTraining);
   document.getElementById("pauseButton").addEventListener("click", pauseTimer);
@@ -106,81 +96,6 @@ function init() {
       timerTick();
     }
   });
-}
-  const versionBadge = document.createElement("div");
-  versionBadge.textContent = `v${APP_VERSION}`;
-  versionBadge.style.cssText = `
-    position: fixed;
-    top: max(8px, env(safe-area-inset-top));
-    right: 10px;
-    font-size: 10px;
-    font-family: system-ui, sans-serif;
-    color: #888;
-    opacity: 0.65;
-    z-index: 9999;
-    pointer-events: none;
-  `;
-  document.body.appendChild(versionBadge);
-
-function initBeepVolumeControl() {
-  try {
-    const saved = localStorage.getItem(BEEP_VOLUME_KEY);
-    if (saved !== null && saved.trim() !== "") {
-      const parsed = Number(saved);
-      if (Number.isFinite(parsed)) {
-        beepVolume = Math.max(0, Math.min(100, Math.round(parsed)));
-      }
-    }
-  } catch (error) {
-    console.warn("Could not load beep volume:", error);
-  }
-
-  const control = document.createElement("div");
-  control.style.cssText =
-    "padding:12px 16px;margin:12px 0;border:1px solid #d9dce5;border-radius:12px;";
-
-  const label = document.createElement("label");
-  label.htmlFor = "beepVolume";
-  label.style.cssText =
-    "display:flex;justify-content:space-between;gap:12px;font-weight:600;";
-
-  const title = document.createElement("span");
-  title.textContent = "Głośność bipów";
-
-  const value = document.createElement("span");
-  value.textContent = `${beepVolume}%`;
-  label.append(title, value);
-
-  const slider = document.createElement("input");
-  slider.id = "beepVolume";
-  slider.type = "range";
-  slider.min = "0";
-  slider.max = "100";
-  slider.step = "5";
-  slider.value = String(beepVolume);
-  slider.style.cssText =
-    "display:block;width:100%;margin:12px 0 2px;accent-color:#8272c7;";
-
-  slider.addEventListener("input", () => {
-    beepVolume = Number(slider.value);
-    value.textContent = `${beepVolume}%`;
-    try {
-      localStorage.setItem(BEEP_VOLUME_KEY, String(beepVolume));
-    } catch (error) {
-      console.warn("Could not save beep volume:", error);
-    }
-  });
-
-  control.append(label, slider);
-
-  const startButton = document.getElementById("startButton");
-  const buttonContainer = startButton?.parentElement;
-
-  if (buttonContainer?.parentElement) {
-    buttonContainer.parentElement.insertBefore(control, buttonContainer);
-  } else {
-    document.body.appendChild(control);
-  }
 }
 
 function structuredCloneSafe(value) {
@@ -257,6 +172,28 @@ function displayTraining() {
     repeatBox.append(repeatLabel, repeatInput, times, deleteSectionButton);
     header.append(title, repeatBox);
 
+    const commandRow = document.createElement("div");
+    commandRow.className = "section-command";
+
+    const commandLabel = document.createElement("label");
+    const commandId = `section-command-${sectionIndex}`;
+    commandLabel.htmlFor = commandId;
+    commandLabel.textContent = "Komenda:";
+
+    const commandInput = document.createElement("input");
+    commandInput.id = commandId;
+    commandInput.type = "text";
+    commandInput.maxLength = LIMITS.maxCommandLength;
+    commandInput.autocomplete = "off";
+    commandInput.placeholder = "np. Pompki";
+    commandInput.value = section.command;
+    commandInput.addEventListener("change", () => {
+      changeSectionCommand(sectionIndex, commandInput.value);
+      commandInput.value = training[sectionIndex].command;
+    });
+
+    commandRow.append(commandLabel, commandInput);
+
     const intervalContainer = document.createElement("div");
 
     section.intervals.forEach((interval, intervalIndex) => {
@@ -301,9 +238,15 @@ function displayTraining() {
       () => addInterval(sectionIndex)
     );
 
-    sectionDiv.append(header, intervalContainer, addIntervalButton);
+    sectionDiv.append(header, commandRow, intervalContainer, addIntervalButton);
     els.sections.appendChild(sectionDiv);
   });
+}
+
+function changeSectionCommand(sectionIndex, value) {
+  const section = training[sectionIndex];
+  if (!section) return;
+  section.command = cleanText(value, LIMITS.maxCommandLength);
 }
 
 function changeInterval(sectionIndex, intervalIndex, value) {
@@ -444,7 +387,7 @@ function playCurrentInterval() {
     return;
   }
 
-
+  maybeSpeakSectionCommand();
 
   const seconds = pausedSecondsLeft ?? interval.seconds;
   pausedSecondsLeft = null;
@@ -455,7 +398,6 @@ function playCurrentInterval() {
   els.timer.textContent = String(currentTime);
   updateStatus();
 
-  scheduleIntervalBeeps(seconds);
   timerId = window.setInterval(timerTick, 100);
   timerTick();
 }
@@ -472,7 +414,9 @@ function timerTick() {
     currentTime = secondsLeft;
     els.timer.textContent = String(secondsLeft);
 
-
+    if (secondsLeft === 3 || secondsLeft === 2 || secondsLeft === 1) {
+      warningBeep();
+    }
 
     if (typeof previous === "number" && previous > secondsLeft) {
       remainingTrainingSeconds = Math.max(
@@ -488,13 +432,47 @@ function timerTick() {
     timerId = null;
     currentTime = 0;
     els.timer.textContent = "0";
-
+    finalBeep();
 
     transitionTimeoutId = window.setTimeout(() => {
       transitionTimeoutId = null;
       goToNextInterval();
     }, 1000);
   }
+}
+
+function maybeSpeakSectionCommand() {
+  const section = training[currentSection];
+  if (!section) return;
+
+  const shouldAnnounce =
+    currentSectionRepeat === 1 &&
+    currentInterval === 0 &&
+    section.command;
+
+  const key = `${currentTrainingRepeat}:${currentSection}`;
+
+  if (shouldAnnounce && announcedSectionKey !== key) {
+    announcedSectionKey = key;
+    speak(section.command);
+  }
+}
+
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+
+  const safeText = cleanText(text, LIMITS.maxCommandLength);
+  if (!safeText) return;
+
+  window.speechSynthesis.cancel();
+
+  const utterance = new SpeechSynthesisUtterance(safeText);
+  utterance.lang = "pl-PL";
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+
+  window.speechSynthesis.speak(utterance);
 }
 
 function goToNextInterval() {
@@ -559,6 +537,9 @@ function pauseTimer() {
   releaseWakeLock();
   els.status.textContent = "Pauza";
 
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
 }
 
 function resumeTimer() {
@@ -580,11 +561,14 @@ function stopTimer() {
   clearTimerHandles();
   releaseWakeLock();
 
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
 
   running = false;
   paused = false;
   pausedSecondsLeft = null;
-
+  announcedSectionKey = null;
 
   resetPosition();
 
@@ -602,7 +586,7 @@ function resetPosition() {
   currentSectionRepeat = 1;
   currentTrainingRepeat = 1;
   currentTime = 0;
-
+  announcedSectionKey = null;
 }
 
 function finishTraining() {
@@ -658,31 +642,7 @@ function releaseWakeLock() {
   }
 }
 
-function cancelScheduledBeeps() {
-  for (const oscillator of scheduledBeeps) {
-    try {
-      oscillator.stop();
-      oscillator.disconnect();
-    } catch {}
-  }
-  scheduledBeeps = [];
-}
-
-function scheduleIntervalBeeps(seconds) {
-  cancelScheduledBeeps();
-  prepareAudio();
-
-  for (const warning of [3, 2, 1]) {
-    if (seconds > warning) {
-      makeBeep(0.14, 0.82, seconds - warning);
-    }
-  }
-
-  makeBeep(1.0, 0.92, seconds);
-}
-
 function clearTimerHandles() {
-  cancelScheduledBeeps();
   if (timerId !== null) {
     window.clearInterval(timerId);
     timerId = null;
@@ -706,12 +666,11 @@ function prepareAudio() {
   }
 }
 
-function makeBeep(duration, gainValue, delay = 0) {
-  if (beepVolume <= 0) return;
+function makeBeep(duration, gainValue) {
   prepareAudio();
   if (!audioContext) return;
 
-  const now = audioContext.currentTime + Math.max(0, delay);
+  const now = audioContext.currentTime;
   const master = audioContext.createGain();
   const compressor = audioContext.createDynamicsCompressor();
 
@@ -727,15 +686,8 @@ function makeBeep(duration, gainValue, delay = 0) {
   master.gain.setValueAtTime(gainValue, now + Math.max(0.008, duration - 0.04));
   master.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
-    const volumeControl = audioContext.createGain();
-  volumeControl.gain.setValueAtTime(
-  Math.pow(beepVolume / 100, 4),
-  now
-);
-
   master.connect(compressor);
-  compressor.connect(volumeControl);
-  volumeControl.connect(audioContext.destination);
+  compressor.connect(audioContext.destination);
 
   [1050, 2100].forEach((frequency, index) => {
     const oscillator = audioContext.createOscillator();
@@ -747,10 +699,6 @@ function makeBeep(duration, gainValue, delay = 0) {
 
     oscillator.connect(voiceGain);
     voiceGain.connect(master);
-    scheduledBeeps.push(oscillator);
-    oscillator.onended = () => {
-      scheduledBeeps = scheduledBeeps.filter(item => item !== oscillator);
-    };
     oscillator.start(now);
     oscillator.stop(now + duration);
   });
@@ -845,7 +793,7 @@ function normalizeTraining(rawTraining) {
     if (intervals.length === 0) continue;
 
     safeSections.push({
-      command: "",
+      command: cleanText(rawSection.command, LIMITS.maxCommandLength),
       repeats: clampInteger(
         rawSection.repeats,
         1,
@@ -966,3 +914,10 @@ function deleteWorkout(index) {
     displaySavedWorkouts();
   }
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  const badge = document.createElement("div");
+  badge.textContent = "TEST-01";
+  badge.style.cssText = "position:fixed;top:10px;right:10px;font-size:10px;color:#888;z-index:9999;";
+  document.body.appendChild(badge);
+});
